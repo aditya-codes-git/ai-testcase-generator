@@ -12,93 +12,143 @@ serve(async (req) => {
 
   try {
     const { feature } = await req.json()
-    console.log("Feature requested:", feature)
+    console.log("Feature requested via Groq:", feature)
 
-    // Ensure feature string exists
     if (!feature || typeof feature !== 'string') {
       throw new Error('Feature description is required')
     }
 
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiApiKey) {
-      console.warn('GEMINI_API_KEY is not set. Using fallback mock data.');
+    const groqApiKey = Deno.env.get('GROQ_API_KEY')
+    if (!groqApiKey) {
+      console.warn('GROQ_API_KEY is not set. Using fallback mock data.');
       return new Response(JSON.stringify(getMockData(feature)), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const prompt = `Generate software test cases for the following feature: "${feature}"
+    const prompt = `You are a professional QA engineer.
 
-Return STRICT JSON:
+Generate structured software test cases based on a feature description.
+
+---
+
+## OUTPUT FORMAT (STRICT JSON ONLY)
+
+Return ONLY valid JSON. No explanation. No extra text.
+
 {
-"projectName": "Extracted or inferred project name",
-"priority": "High/Medium/Low",
-"description": "Brief description of the generated tests",
+"projectDetails": {
+"projectName": "Sample App",
+"priority": "High",
+"description": "<short description of feature>",
+"testCaseAuthor": "AI Generator",
+"testCaseReviewer": "",
+"testCaseVersion": "1.0",
+"testExecutionDate": ""
+},
 "testCases": [
 {
-"id": "TC001",
-"title": "Short title",
-"type": "positive/negative/edge",
-"steps": ["Step 1", "Step 2"],
-"inputData": "Input values if any",
-"expectedResult": "What should happen",
+"testCaseId": "TC001",
+"testSteps": [
+"Step 1",
+"Step 2",
+"Step 3"
+],
+"inputData": "",
+"expectedResult": "",
 "actualResult": "",
-"environment": "Web",
-"status": "Not Executed",
-"bugSeverity": "Low/Medium/High/Critical or empty",
-"bugPriority": "Low/Medium/High/Urgent or empty",
+"testEnvironment": "Web",
+"executionStatus": "Not Executed",
+"bugSeverity": "None",
+"bugPriority": "None",
 "notes": ""
 }
 ]
 }
 
-Rules:
-* No extra text, ONLY valid JSON
-* At least 6 test cases
-* Include positive, negative, and edge cases`;
+---
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`
+## REQUIREMENTS
+
+* Generate at least 6–10 test cases
+* Include:
+
+  * Positive cases
+  * Negative cases
+  * Edge cases
+* Include validation scenarios:
+
+  * Empty inputs
+  * Invalid formats
+  * Boundary values
+* Ensure all fields are filled meaningfully
+* Steps must be clear and actionable
+* IDs must be sequential (TC001, TC002...)
+
+---
+
+## IMPORTANT RULES
+
+* Do NOT skip any field
+* Do NOT return explanations
+* JSON must be valid and directly parsable
+
+---
+
+## FEATURE
+
+${feature}
+
+---
+
+Return ONLY JSON.`;
+
+    const groqUrl = `https://api.groq.com/openai/v1/chat/completions`
     
-    console.log("Calling Gemini API...");
+    console.log("Calling Groq API (llama-3.3-70b-versatile)...");
 
-    const geminiRes = await fetch(geminiUrl, {
+    const groqRes = await fetch(groqUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${groqApiKey}`
       },
       body: JSON.stringify({
-        contents: [
+        model: "llama-3.3-70b-versatile",
+        messages: [
           {
-            parts: [{ text: prompt }]
+            role: "system",
+            content: "You are a professional QA engineer who outputs strictly valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
           }
         ],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
+        temperature: 0.1,
+        response_format: { type: "json_object" }
       })
     })
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error("Gemini API error response:", errText);
-      throw new Error('Gemini API call failed')
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error("Groq API error response:", errText);
+      throw new Error(`Groq API call failed: ${groqRes.statusText}`)
     }
 
-    const geminiData = await geminiRes.json()
-    const textOutput = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+    const groqData = await groqRes.json()
+    const textOutput = groqData.choices?.[0]?.message?.content
 
     if (!textOutput) {
-       throw new Error('Invalid response from Gemini API')
+       throw new Error('Invalid response from Groq API')
     }
     
-    // Attempt to parse JSON safely mapping markdown code blocks if any
     let parsedJson;
     try {
-      const cleanJsonStr = textOutput.replace(/```json/g, '').replace(/```/g, '').trim();
-      parsedJson = JSON.parse(cleanJsonStr);
+      parsedJson = JSON.parse(textOutput);
     } catch (parseError) {
-      console.error("Failed to parse Gemini output as JSON", textOutput);
-      throw new Error('Failed to parse Gemini output as JSON')
+      console.error("Failed to parse Groq output as JSON", textOutput);
+      throw new Error('Failed to parse Groq output as JSON')
     }
 
     return new Response(JSON.stringify(parsedJson), {
@@ -106,8 +156,7 @@ Rules:
     })
 
   } catch (error: any) {
-    console.error("Error generating test cases:", error.message)
-    // Fallback response explicitly requested
+    console.error("Error generating test cases via Groq:", error.message)
     return new Response(JSON.stringify(getMockData("Fallback: " + (error.message || 'Unknown Error'))), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -116,36 +165,26 @@ Rules:
 
 function getMockData(feature: string) {
   return {
-    projectName: "Sample App",
-    priority: "Medium",
-    description: "Generated fallback test cases due to an error.",
+    projectDetails: {
+      projectName: "Fallback Tool",
+      priority: "Medium",
+      description: "Generated fallback test cases due to a backend error.",
+      testCaseAuthor: "System",
+      testCaseReviewer: "N/A",
+      testCaseVersion: "0.1",
+      testExecutionDate: ""
+    },
     testCases: [
       {
-        id: "TC001",
-        title: "Verify positive flow",
-        type: "positive",
-        steps: ["Open app", "Input valid data", "Submit"],
+        testCaseId: "TC001",
+        testSteps: ["Open app", "Input valid data", "Submit"],
         inputData: feature,
         expectedResult: "Success message displayed",
         actualResult: "",
-        environment: "Web",
-        status: "Not Executed",
-        bugSeverity: "",
-        bugPriority: "",
-        notes: "Generated from fallback"
-      },
-      {
-        id: "TC002",
-        title: "Verify negative flow",
-        type: "negative",
-        steps: ["Open app", "Input invalid data", "Submit"],
-        inputData: "invalid",
-        expectedResult: "Error message displayed",
-        actualResult: "",
-        environment: "Web",
-        status: "Not Executed",
-        bugSeverity: "",
-        bugPriority: "",
+        testEnvironment: "Web",
+        executionStatus: "Not Executed",
+        bugSeverity: "None",
+        bugPriority: "None",
         notes: "Generated from fallback"
       }
     ]
