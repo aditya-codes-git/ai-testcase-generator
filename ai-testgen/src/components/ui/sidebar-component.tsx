@@ -7,7 +7,6 @@ import {
   Folder,
   Calendar as CalendarIcon,
   Analytics,
-  Settings as SettingsIcon,
   User as UserIcon,
   Search as SearchIcon,
   AddLarge,
@@ -20,18 +19,29 @@ import {
   Logout,
   Menu
 } from "@carbon/icons-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
-type PrimaryTab = "dashboard" | "tasks" | "projects" | "calendar" | "analytics";
+export type PrimaryTab = "dashboard" | "tasks" | "projects" | "calendar" | "analytics";
 
 interface SidebarProps {
   userEmail?: string;
   onLogout?: () => void;
   className?: string;
+  activeTab: PrimaryTab;
+  onTabChange: (tab: PrimaryTab) => void;
+  activeSecondaryTab: string;
+  onSecondaryTabChange: (tab: string) => void;
 }
 
-export function TwoLevelSidebar({ userEmail, onLogout, className }: SidebarProps) {
-  const [activeTab, setActiveTab] = useState<PrimaryTab>("dashboard");
+export function TwoLevelSidebar({ 
+  userEmail, 
+  onLogout, 
+  className,
+  activeTab,
+  onTabChange,
+  activeSecondaryTab,
+  onSecondaryTabChange
+}: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const primaryNav = [
@@ -66,7 +76,6 @@ export function TwoLevelSidebar({ userEmail, onLogout, className }: SidebarProps
 
   return (
     <>
-      {/* Mobile Toggle */}
       <button 
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card rounded-md border border-border"
         onClick={() => setMobileOpen(!mobileOpen)}
@@ -92,16 +101,15 @@ export function TwoLevelSidebar({ userEmail, onLogout, className }: SidebarProps
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as PrimaryTab)}
+                  onClick={() => onTabChange(item.id as PrimaryTab)}
                   className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative",
                     isActive 
-                      ? "bg-primary text-primary-foreground shadow-md" 
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
                   <Icon size={20} />
-                  {/* Tooltip */}
                   <div className="absolute left-14 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 border border-border shadow-sm">
                     {item.label}
                   </div>
@@ -148,14 +156,16 @@ export function TwoLevelSidebar({ userEmail, onLogout, className }: SidebarProps
             </div>
 
             <nav className="space-y-1">
-              {getSecondaryNav().map((item, idx) => {
+              {getSecondaryNav().map((item) => {
                 const Icon = item.icon;
+                const isActive = activeSecondaryTab === item.id;
                 return (
                   <button 
                     key={item.id}
+                    onClick={() => onSecondaryTabChange(item.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                      idx === 0 
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      isActive 
                         ? "bg-primary/10 text-primary" 
                         : "text-muted-foreground hover:bg-background hover:text-foreground"
                     )}
@@ -177,7 +187,6 @@ export function TwoLevelSidebar({ userEmail, onLogout, className }: SidebarProps
         </div>
       </div>
       
-      {/* Mobile Backdrop */}
       {mobileOpen && (
         <div 
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30 md:hidden"
