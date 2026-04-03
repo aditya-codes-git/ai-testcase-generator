@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
-import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight } from "lucide-react"
+import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, Plane } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
 import { TwoLevelSidebar, type PrimaryTab } from "../components/ui/sidebar-component"
 import ExcelJS from "exceljs"
 import { saveAs } from "file-saver"
 import { generateTestCases } from "../lib/api"
+import { cn } from "../lib/utils"
 
 export default function Dashboard({ session }: { session: any }) {
   const navigate = useNavigate()
@@ -36,8 +37,22 @@ export default function Dashboard({ session }: { session: any }) {
   const [fetchingHistory, setFetchingHistory] = useState(false)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
 
+  // Calculate Metrics
+  const metrics = useMemo(() => {
+    const totalGenerations = history.length
+    const totalTestCases = history.reduce((sum, item) => sum + (item.generated_json.testCases?.length || 0), 0)
+    const avgCasesPerProject = totalGenerations > 0 ? (totalTestCases / totalGenerations).toFixed(1) : "0"
+    
+    return {
+      totalGenerations,
+      totalTestCases,
+      avgCasesPerProject,
+      lastUpdated: history[0]?.created_at
+    }
+  }, [history])
+
   useEffect(() => {
-    if (activeSecondaryTab === "reports") {
+    if (activeSecondaryTab === "reports" || activeSecondaryTab === "metrics") {
       fetchHistory()
     }
   }, [activeSecondaryTab])
@@ -87,7 +102,10 @@ export default function Dashboard({ session }: { session: any }) {
       ])
 
       if (dbError) {
-        console.warn("Could not save to history, but generation succeeded:", dbError)
+        console.warn("Could not save to history:", dbError)
+      } else {
+        // Optimistically update history if it's already fetched
+        fetchHistory()
       }
       
       setResult(data)
@@ -201,8 +219,8 @@ export default function Dashboard({ session }: { session: any }) {
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-background/50">
         <header className="h-[72px] border-b border-border/50 bg-card/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-sm sticky top-0 z-10">
-          <div className="text-xl font-semibold md:hidden flex items-center gap-2 ml-10">
-            <BrainCircuit className="w-5 h-5 text-primary" /> AI TestGen
+          <div className="text-xl font-bold flex items-center gap-2 ml-10 cursor-pointer group" onClick={() => navigate("/")}>
+            <Plane className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" /> TestPilot <span className="text-primary">AI</span>
           </div>
           <h1 className="text-xl font-semibold hidden md:block tracking-tight capitalize">
             {activeSecondaryTab === 'overview' ? 'AI Generator' : activeSecondaryTab}
@@ -346,6 +364,105 @@ export default function Dashboard({ session }: { session: any }) {
                     </div>
                     
                     <TestCaseTable testCases={selectedHistoryItem.generated_json.testCases} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* View 3: Metrics (Stats) */}
+            {activeSecondaryTab === "metrics" && (
+              <div className="space-y-10 animate-in fade-in duration-500 pb-10">
+                <div className="flex items-center gap-4 border-b border-border/50 pb-4">
+                  <BarChart3 className="w-6 h-6 text-primary" />
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Analytics Dashboard</h2>
+                    <p className="text-muted-foreground text-sm">Visualize your generation velocity and project output.</p>
+                  </div>
+                </div>
+
+                {fetchingHistory ? (
+                   <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary/40" /></div>
+                ) : history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-96 bg-card/10 rounded-3xl border border-dashed border-border/50">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4"><TrendingUp className="w-8 h-8 text-muted-foreground" /></div>
+                    <h3 className="text-lg font-semibold">No data available yet</h3>
+                    <p className="text-muted-foreground text-sm mt-1">Start generating reports to see your metrics populate.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-10">
+                    {/* Stat Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-card p-6 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <Activity className="w-12 h-12 text-primary" />
+                        </div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Generations</p>
+                        <h4 className="text-4xl font-extrabold">{metrics.totalGenerations}</h4>
+                        <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 mt-2 tracking-tighter">
+                          <Zap className="w-3 h-3" /> SUCCESSIVE RUNS
+                        </p>
+                      </div>
+
+                      <div className="bg-card p-6 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <ListChecks className="w-12 h-12 text-primary" />
+                        </div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Test Cases</p>
+                        <h4 className="text-4xl font-extrabold">{metrics.totalTestCases}</h4>
+                        <p className="text-[10px] text-primary/60 font-bold flex items-center gap-1 mt-2 tracking-tighter uppercase underline underline-offset-2">
+                          QA Scenarios Generated
+                        </p>
+                      </div>
+
+                      <div className="bg-card p-6 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <TrendingUp className="w-12 h-12 text-primary" />
+                        </div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Avg Case/Project</p>
+                        <h4 className="text-4xl font-extrabold">{metrics.avgCasesPerProject}</h4>
+                        <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1 mt-2 tracking-tighter">
+                          LAST UPDATED: {metrics.lastUpdated ? new Date(metrics.lastUpdated).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Activity Summary */}
+                    <div className="bg-card rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+                      <div className="px-6 py-4 border-b border-border/50 bg-muted/30">
+                        <h3 className="font-bold text-lg">Activity Summary</h3>
+                      </div>
+                      <div className="p-0 overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="bg-muted/50 text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+                              <th className="px-6 py-4">Project</th>
+                              <th className="px-6 py-4">Priority</th>
+                              <th className="px-6 py-4">Cases</th>
+                              <th className="px-6 py-4">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {history.slice(0, 5).map((item) => (
+                              <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                                <td className="px-6 py-4 font-semibold text-sm">{item.generated_json.projectDetails?.projectName}</td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border",
+                                    item.generated_json.projectDetails?.priority === 'High' ? "bg-red-500/10 text-red-500 border-red-500/20" : 
+                                    item.generated_json.projectDetails?.priority === 'Medium' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                                    "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                                  )}>
+                                    {item.generated_json.projectDetails?.priority}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 font-bold text-sm">{item.generated_json.testCases?.length || 0}</td>
+                                <td className="px-6 py-4 text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

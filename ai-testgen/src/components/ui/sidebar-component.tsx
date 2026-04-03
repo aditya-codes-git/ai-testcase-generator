@@ -17,7 +17,8 @@ import {
   InProgress,
   Archive,
   Logout,
-  Menu
+  Menu,
+  Plane
 } from "@carbon/icons-react";
 import { cn } from "../../lib/utils";
 
@@ -90,9 +91,15 @@ export function TwoLevelSidebar({
       )}>
         {/* Level 1: Primary Navigation */}
         <div className="w-[72px] flex flex-col items-center py-6 border-r border-border/50 bg-background/50">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center mb-8 border border-primary/20">
-            <Dashboard size={20} className="text-primary" />
-          </div>
+          <button 
+            onClick={() => window.location.href = "/"}
+            className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-10 border border-primary/20 hover:bg-primary/20 transition-all group relative"
+          >
+            <Plane size={24} className="text-primary group-hover:scale-110 transition-transform" />
+            <div className="absolute left-16 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 border border-border shadow-sm">
+                TestPilot AI Home
+            </div>
+          </button>
           
           <nav className="flex-1 w-full flex flex-col items-center gap-4">
             {primaryNav.map((item) => {
@@ -141,8 +148,15 @@ export function TwoLevelSidebar({
 
         {/* Level 2: Secondary Navigation */}
         <div className="w-64 flex flex-col bg-card/30 hidden sm:flex">
-          <div className="p-4 border-b border-border/50 h-[72px] flex items-center">
-            <h2 className="font-semibold text-lg capitalize tracking-tight">{activeTab}</h2>
+          <div className="p-6 border-b border-border/50 h-[88px] flex flex-col justify-center gap-1">
+            <div 
+              onClick={() => window.location.href = "/"}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
+              <Plane size={20} className="text-primary" />
+              <h1 className="font-bold text-xl tracking-tight group-hover:text-primary transition-colors">TestPilot <span className="text-primary">AI</span></h1>
+            </div>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{activeTab}</p>
           </div>
           
           <div className="p-4">
