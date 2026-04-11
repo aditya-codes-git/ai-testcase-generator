@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
 import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check, Trash2, UploadCloud } from "lucide-react"
@@ -10,6 +10,76 @@ import { saveAs } from "file-saver"
 import { generateTestCases, refineTestCases, generateAutomationScript, fetchAutomationScript } from "../lib/api"
 import { cn } from "../lib/utils"
 import { AiChatPanel } from "../components/ui/AiChatPanel"
+import { motion } from "framer-motion"
+
+/* ── Glassmorphic Dashboard Nav (mirrors landing NavHeader) ──────────── */
+function DashboardNav({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+  const [cursorPos, setCursorPos] = useState({ left: 0, width: 0, opacity: 0 });
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "reports", label: "Reports" },
+    { id: "metrics", label: "Metrics" },
+  ];
+
+  return (
+    <ul
+      className="relative flex rounded-full border border-white/10 bg-white/5 backdrop-blur-xl p-1 shadow-2xl shadow-black/40"
+      onMouseLeave={() => setCursorPos((p) => ({ ...p, opacity: 0 }))}
+    >
+      {tabs.map((tab) => (
+        <DashboardNavTab
+          key={tab.id}
+          isActive={activeTab === tab.id}
+          onClick={() => onTabChange(tab.id)}
+          setCursorPos={setCursorPos}
+        >
+          {tab.label}
+        </DashboardNavTab>
+      ))}
+      <motion.li
+        animate={cursorPos}
+        className="absolute z-0 h-8 rounded-full bg-white/10 md:h-9 top-1/2 -translate-y-1/2"
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      />
+    </ul>
+  );
+}
+
+function DashboardNavTab({
+  children,
+  isActive,
+  onClick,
+  setCursorPos,
+}: {
+  children: React.ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+  setCursorPos: any;
+}) {
+  const ref = useRef<HTMLLIElement>(null);
+
+  return (
+    <li
+      ref={ref}
+      onMouseEnter={() => {
+        if (!ref.current) return;
+        const { width } = ref.current.getBoundingClientRect();
+        setCursorPos({ width, opacity: 1, left: ref.current.offsetLeft });
+      }}
+      onClick={onClick}
+      className="relative z-10 block cursor-pointer transition-colors"
+    >
+      <span
+        className={cn(
+          "block px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors md:px-6 md:py-2.5",
+          isActive ? "text-white" : "text-white/50 hover:text-white/80"
+        )}
+      >
+        {children}
+      </span>
+    </li>
+  );
+}
 
 export default function Dashboard({ session }: { session: any }) {
   const navigate = useNavigate()
@@ -427,23 +497,29 @@ export default function Dashboard({ session }: { session: any }) {
         activeSecondaryTab={activeSecondaryTab}
         onSecondaryTabChange={setActiveSecondaryTab}
       />
-
       <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-gradient-to-b from-background via-background to-background/95 relative">
         <header className="h-[72px] border-b border-white/[0.06] bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 shrink-0 sticky top-0 z-10">
-          <div className="flex-1"></div>
-          <h1 className="text-lg font-bold hidden md:block tracking-tight capitalize text-foreground/90">
-            {activeSecondaryTab === 'overview' ? 'AI Generator' : activeSecondaryTab}
-          </h1>
+          {/* Logo */}
+          <div className="flex items-center gap-2 cursor-pointer group" onClick={() => window.location.href = "/"}>
+            <img src="/Logo/logo_full.png" alt="TestGen" className="h-9 w-auto group-hover:scale-105 transition-transform" />
+          </div>
+
+          {/* Center Nav — Glassmorphic Pill Tabs */}
+          <nav className="hidden md:flex">
+            <DashboardNav activeTab={activeSecondaryTab} onTabChange={setActiveSecondaryTab} />
+          </nav>
+          
+          {/* Right — User + Sign Out */}
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex flex-col items-end mr-4">
+            <div className="hidden md:flex flex-col items-end mr-2">
               <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.15em] leading-none">Testing Account</span>
               <span className="text-sm font-semibold text-foreground/80">{session?.user?.email}</span>
             </div>
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.04] rounded-xl transition-all border border-white/[0.06] hover:border-white/10"
+              className="flex items-center gap-2 px-5 py-2 text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl rounded-full transition-all border border-white/10"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
