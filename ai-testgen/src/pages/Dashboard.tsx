@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
-import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, Plane } from "lucide-react"
+import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, Plane, RefreshCw, Wand2, ChevronDown, ChevronUp } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
 import { TwoLevelSidebar, type PrimaryTab } from "../components/ui/sidebar-component"
 import ExcelJS from "exceljs"
 import { saveAs } from "file-saver"
-import { generateTestCases } from "../lib/api"
+import { generateTestCases, refineTestCases } from "../lib/api"
 import { cn } from "../lib/utils"
+import { AiChatPanel } from "../components/ui/AiChatPanel"
 
 export default function Dashboard({ session }: { session: any }) {
   const navigate = useNavigate()
@@ -31,6 +32,13 @@ export default function Dashboard({ session }: { session: any }) {
     testCases?: TestCase[];
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Refinement State
+  const [refineInstruction, setRefineInstruction] = useState("")
+  const [refining, setRefining] = useState(false)
+  const [refineError, setRefineError] = useState<string | null>(null)
+  const [refineSummary, setRefineSummary] = useState<string | null>(null)
+  const [showRefinePanel, setShowRefinePanel] = useState(false)
 
   // History State
   const [history, setHistory] = useState<any[]>([])
@@ -114,6 +122,33 @@ export default function Dashboard({ session }: { session: any }) {
       setError(err.message || "Failed to generate test cases")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefine = async (quickInstruction?: string) => {
+    const instruction = quickInstruction || refineInstruction.trim()
+    if (!instruction || !result?.testCases) return
+    try {
+      setRefining(true)
+      setRefineError(null)
+      setRefineSummary(null)
+      const data = await refineTestCases(featureDesc, result.testCases, instruction)
+
+      if (!data || !data.testCases) {
+        throw new Error("Received empty or invalid refinement data.")
+      }
+
+      setResult(prev => ({
+        ...prev!,
+        testCases: data.testCases
+      }))
+      setRefineSummary(data.refinementSummary || `Refined with: "${instruction}"`)
+      setRefineInstruction("")
+    } catch (err: any) {
+      console.error("HandleRefine error:", err)
+      setRefineError(err.message || "Failed to refine test cases")
+    } finally {
+      setRefining(false)
     }
   }
 
@@ -284,8 +319,74 @@ export default function Dashboard({ session }: { session: any }) {
                          </div>
                          <p className="text-muted-foreground text-sm max-w-2xl">{result.projectDetails?.description}</p>
                       </div>
-                      <button onClick={() => handleDownloadExcel()} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"><Download className="w-4 h-4" /> Export XLSX</button>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setShowRefinePanel(p => !p)} className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-bold transition-all text-sm">
+                          <Wand2 className="w-4 h-4" /> Refine
+                          {showRefinePanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                        <button onClick={() => handleDownloadExcel()} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"><Download className="w-4 h-4" /> Export XLSX</button>
+                      </div>
                     </div>
+
+                    {/* Refinement Panel */}
+                    {showRefinePanel && (
+                      <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 text-primary" />
+                          <h4 className="font-semibold text-sm">Refine Test Cases</h4>
+                          <span className="text-[10px] text-muted-foreground ml-auto uppercase tracking-widest font-bold">{result.testCases.length} cases loaded</span>
+                        </div>
+
+                        {/* Quick Action Chips */}
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { label: "Add Edge Cases", instruction: "Add edge cases including boundary values, extreme inputs, empty inputs, and null cases" },
+                            { label: "Negative Testing", instruction: "Add negative testing scenarios with invalid inputs, incorrect flows, and error handling" },
+                            { label: "Improve Coverage", instruction: "Improve test coverage by identifying and adding missing logical scenarios" },
+                            { label: "Automation-Ready", instruction: "Make all test steps precise, deterministic, and automation-ready with clear selectors" },
+                            { label: "BDD Format", instruction: "Convert all test cases into Given-When-Then BDD format" },
+                          ].map((chip) => (
+                            <button
+                              key={chip.label}
+                              onClick={() => handleRefine(chip.instruction)}
+                              disabled={refining}
+                              className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold transition-all border border-border/50 hover:border-primary/30 disabled:opacity-50"
+                            >
+                              {chip.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Custom Instruction */}
+                        <div className="flex gap-3">
+                          <input
+                            value={refineInstruction}
+                            onChange={(e) => setRefineInstruction(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
+                            placeholder="Custom instruction: e.g., 'Add security testing scenarios' or 'Focus on API error handling'"
+                            className="flex-1 px-4 py-3 bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary rounded-xl outline-none transition-all text-sm text-foreground placeholder:text-muted-foreground/50"
+                            disabled={refining}
+                          />
+                          <button
+                            onClick={() => handleRefine()}
+                            disabled={refining || !refineInstruction.trim()}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 text-sm whitespace-nowrap"
+                          >
+                            {refining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                            {refining ? "Refining..." : "Refine"}
+                          </button>
+                        </div>
+
+                        {refineError && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm">{refineError}</div>}
+                        {refineSummary && (
+                          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-sm flex items-start gap-2">
+                            <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>{refineSummary}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <TestCaseTable testCases={result.testCases} />
                   </div>
                 )}
@@ -343,27 +444,66 @@ export default function Dashboard({ session }: { session: any }) {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                    <button 
-                      onClick={() => setSelectedHistoryItem(null)}
-                      className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4 rotate-180" /> Back to history
-                    </button>
-                    
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 bg-muted/20 p-6 rounded-2xl border border-border/50 shadow-inner">
-                      <div className="space-y-2">
-                         <div className="flex items-center gap-3">
-                           <h2 className="text-3xl font-bold">{selectedHistoryItem.generated_json.projectDetails?.projectName}</h2>
-                           <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-[10px] font-bold uppercase">v{selectedHistoryItem.generated_json.projectDetails?.testCaseVersion}</span>
-                         </div>
-                         <p className="text-muted-foreground text-sm max-w-2xl">{selectedHistoryItem.generated_json.projectDetails?.description}</p>
-                         <p className="text-xs text-muted-foreground bg-background/50 p-3 rounded-lg border border-border/30 mt-4 italic">"{selectedHistoryItem.feature_text}"</p>
-                      </div>
-                      <button onClick={() => handleDownloadExcel(selectedHistoryItem.generated_json)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95"><Download className="w-4 h-4" /> Export XLSX</button>
+                  <div className="flex flex-col h-[calc(100vh-160px)] animate-in fade-in slide-in-from-right-4 duration-500">
+                    <div className="mb-4 shrink-0">
+                      <button 
+                        onClick={() => setSelectedHistoryItem(null)}
+                        className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors w-fit"
+                      >
+                        <ChevronRight className="w-4 h-4 rotate-180" /> Back to history
+                      </button>
                     </div>
                     
-                    <TestCaseTable testCases={selectedHistoryItem.generated_json.testCases} />
+                    <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0 pb-6">
+                      {/* LEFT: Test Case Table (65%) */}
+                      <div className="lg:w-[65%] flex flex-col gap-6 overflow-hidden">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 bg-muted/20 p-6 rounded-2xl border border-border/50 shadow-inner shrink-0">
+                          <div className="space-y-2">
+                             <div className="flex items-center gap-3">
+                               <h2 className="text-2xl font-bold line-clamp-1">{selectedHistoryItem.generated_json.projectDetails?.projectName}</h2>
+                               <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-[10px] font-bold uppercase shrink-0">v{selectedHistoryItem.generated_json.projectDetails?.testCaseVersion || 1}</span>
+                             </div>
+                             <p className="text-muted-foreground text-sm max-w-2xl line-clamp-2">{selectedHistoryItem.generated_json.projectDetails?.description}</p>
+                             <p className="text-xs text-muted-foreground bg-background/50 p-3 rounded-lg border border-border/30 mt-4 italic line-clamp-2">"{selectedHistoryItem.feature_text}"</p>
+                          </div>
+                          <button onClick={() => handleDownloadExcel(selectedHistoryItem.generated_json)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 shrink-0"><Download className="w-4 h-4" /> Export</button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-auto rounded-2xl border border-border/50 bg-card/40">
+                          <TestCaseTable testCases={selectedHistoryItem.generated_json.testCases} />
+                        </div>
+                      </div>
+
+                      {/* RIGHT: AI Chat Panel (35%) */}
+                      <div className="lg:w-[35%] rounded-2xl border border-border/50 bg-card overflow-hidden flex flex-col shadow-inner">
+                        <AiChatPanel 
+                          testCases={selectedHistoryItem.generated_json.testCases}
+                          testCaseId={selectedHistoryItem.id}
+                          userId={session?.user?.id}
+                          onTestCasesUpdated={async (newTestCases, newVersion) => {
+                            const updatedHistoryItem = {
+                              ...selectedHistoryItem,
+                              generated_json: {
+                                ...selectedHistoryItem.generated_json,
+                                testCases: newTestCases,
+                                projectDetails: {
+                                  ...selectedHistoryItem.generated_json.projectDetails,
+                                  testCaseVersion: newVersion.toString()
+                                }
+                              }
+                            };
+                            setSelectedHistoryItem(updatedHistoryItem);
+                            setHistory(prev => prev.map(item => item.id === selectedHistoryItem.id ? updatedHistoryItem : item));
+                            
+                            try {
+                              await supabase.from('test_cases').update({ generated_json: updatedHistoryItem.generated_json }).eq('id', selectedHistoryItem.id);
+                            } catch (e) {
+                              console.warn("Update error:", e)
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
