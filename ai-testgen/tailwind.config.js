@@ -7,21 +7,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#09090b',
-        foreground: '#FAFAFA',
+        background: '#000000',
+        foreground: '#F0F0F0',
         primary: {
-          DEFAULT: '#8b5cf6',
-          foreground: '#FFFFFF',
+          DEFAULT: '#ffffff',
+          foreground: '#000000',
         },
         card: {
-          DEFAULT: '#18181A',
-          foreground: '#FAFAFA',
+          DEFAULT: '#0a0a0a',
+          foreground: '#F0F0F0',
         },
-        border: '#27272A',
+        border: '#1a1a1a',
         muted: {
-          DEFAULT: '#27272A',
-          foreground: '#A1A1AA',
+          DEFAULT: '#141414',
+          foreground: '#888888',
+        },
+        accent: {
+          DEFAULT: '#ffffff',
+          subtle: '#333333',
         }
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.8s ease-out forwards',
+        'slide-up': 'slideUp 0.8s ease-out forwards',
+        'glow-pulse': 'glowPulse 4s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        glowPulse: {
+          '0%, 100%': { opacity: '0.3' },
+          '50%': { opacity: '0.6' },
+        },
       },
     },
   },

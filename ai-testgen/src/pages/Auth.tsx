@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Link, useNavigate } from 'react-router-dom'
-import { BrainCircuit } from 'lucide-react'
+import { Plane } from 'lucide-react'
 
 export default function Auth() {
   const [email, setEmail] = useState('')
@@ -49,16 +49,16 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4 font-sans">
       <Link to="/" className="absolute top-6 left-6 flex items-center gap-2 hover:opacity-80 transition">
-        <BrainCircuit className="w-8 h-8 text-primary" />
-        <span className="text-xl font-bold tracking-tight text-foreground">AI TestGen</span>
+        <Plane className="w-8 h-8 text-white" />
+        <span className="text-xl font-bold tracking-tight text-white">TestPilot <span className="text-white/60">AI</span></span>
       </Link>
 
-      <div className="w-full max-w-md p-8 rounded-2xl bg-card border border-border mt-10">
+      <div className="w-full max-w-md p-8 rounded-2xl bg-white/[0.03] border border-white/10 mt-10 backdrop-blur-xl">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
-          <p className="text-muted-foreground mt-2">Sign in to your account or create a new one</p>
+          <h2 className="text-2xl font-bold text-white">Welcome back</h2>
+          <p className="text-white/40 mt-2">Sign in to your account or create a new one</p>
         </div>
 
         {error && (
@@ -70,7 +70,7 @@ export default function Auth() {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full mb-6 flex items-center justify-center gap-3 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-100 transition-all border border-zinc-200 disabled:opacity-50"
+          className="w-full mb-6 flex items-center justify-center gap-3 py-3 rounded-xl bg-white text-black font-semibold hover:bg-white/90 transition-all border border-white/20 disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -95,31 +95,31 @@ export default function Auth() {
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
+            <div className="w-full border-t border-white/10"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            <span className="bg-black px-2 text-white/30">Or continue with</span>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
+            <label className="block text-sm font-medium text-white mb-1.5">Email address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground text-foreground"
+              className="w-full px-4 py-2.5 rounded-xl bg-black border border-white/10 focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder:text-white/20 text-white"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-white mb-1.5">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground text-foreground"
+              className="w-full px-4 py-2.5 rounded-xl bg-black border border-white/10 focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder:text-white/20 text-white"
               placeholder="••••••••"
             />
           </div>
@@ -128,14 +128,14 @@ export default function Auth() {
             <button
               onClick={() => handleAuth(false)}
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Sign In'}
             </button>
             <button
               onClick={() => handleAuth(true)}
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-muted text-foreground font-medium hover:bg-muted/80 transition-colors disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-white/5 text-white font-medium hover:bg-white/10 transition-colors disabled:opacity-50 border border-white/10"
             >
               {loading ? 'Processing...' : 'Create Account'}
             </button>
