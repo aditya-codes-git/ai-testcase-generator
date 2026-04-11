@@ -2,8 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { generateAutomationScript, refineTestCases, generateTestCasesFromText } = require('./utils/gemini');
-const { extractTextFromImage } = require('./utils/vision');
+const { generateTestCasesFromText } = require('./utils/gemini');
+const groq = require('./utils/groq');
+const visionRoutes = require('./routes/vision');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -20,6 +21,9 @@ app.get('/health', (req, res) => {
   res.json({ success: true, message: 'TestGen AI Backend is running' });
 });
 
+// Mount Vision Routes
+app.use('/', visionRoutes);
+
 // Endpoint: Generate Automation Script
 app.post('/generate-script', async (req, res) => {
   try {
@@ -29,7 +33,7 @@ app.post('/generate-script', async (req, res) => {
       return res.status(400).json({ success: false, error: 'testCases is required' });
     }
 
-    const script = await generateAutomationScript(testCases);
+    const script = await groq.generateAutomationScript(testCases);
     return res.json({ success: true, data: { script } });
   } catch (error) {
     console.error('Error generating script:', error);
@@ -46,7 +50,7 @@ app.post('/refine-testcases', async (req, res) => {
       return res.status(400).json({ success: false, error: 'currentTestCases and instruction are required' });
     }
 
-    const refinedTestCases = await refineTestCases(currentTestCases, instruction);
+    const refinedTestCases = await groq.refineTestCases(currentTestCases, instruction);
     return res.json({ success: true, data: { testCases: refinedTestCases } });
   } catch (error) {
     console.error('Error refining test cases:', error);
@@ -54,26 +58,32 @@ app.post('/refine-testcases', async (req, res) => {
   }
 });
 
-// Endpoint: Generate from Image
-app.post('/generate-from-image', upload.single('image'), async (req, res) => {
+// Endpoint: Generate Automation Script
+app.post('/generate-testcases', async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'image file is required' });
+    const { feature } = req.body;
+    if (!feature) {
+      return res.status(400).json({ success: false, error: 'feature is required' });
     }
-
-    // 1. Extract text from image via Vision API
-    const extractedText = await extractTextFromImage(req.file.buffer);
-    
-    if (!extractedText) {
-      return res.status(400).json({ success: false, error: 'No text found in the provided image' });
-    }
-
-    // 2. Generate test cases from extracted text via Gemini
-    const testCasesResult = await generateTestCasesFromText(extractedText);
-    
-    return res.json({ success: true, data: testCasesResult });
+    const result = await groq.generateTestCases(feature);
+    return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error processing image:', error);
+    console.error('Error generating test cases:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint: Chat Refinement
+app.post('/chat-refine', async (req, res) => {
+  try {
+    const { messages, currentTestCases } = req.body;
+    if (!messages || !currentTestCases) {
+      return res.status(400).json({ success: false, error: 'messages and currentTestCases are required' });
+    }
+    const result = await groq.chatRefine(messages, currentTestCases);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error in chat refinement:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });

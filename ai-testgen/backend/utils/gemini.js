@@ -127,8 +127,91 @@ Output ONLY a raw JSON format exactly following this structure, no markdown:
   }
 }
 
+// Generate test cases from feature description
+async function generateTestCases(feature) {
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+  const systemPrompt = `You are an expert QA Engineer. Generate comprehensive test cases for the following feature.
+Output ONLY a raw JSON format exactly following this structure, no markdown:
+{
+  "projectDetails": {
+    "projectName": "New Feature Test",
+    "priority": "Medium",
+    "description": "Auto-generated tests",
+    "testCaseAuthor": "AI Assistant"
+  },
+  "testCases": [
+    {
+      "testCaseId": "TC001",
+      "testSteps": ["Step 1", "Step 2"],
+      "inputData": "N/A",
+      "expectedResult": "Success",
+      "notes": ""
+    }
+  ]
+}`;
+
+  const userPrompt = `FEATURE DESCRIPTION:\n${feature}`;
+
+  const result = await model.generateContent([
+    { text: systemPrompt },
+    { text: userPrompt }
+  ]);
+
+  let textOutput = result.response.text();
+  if (textOutput.startsWith("```")) {
+    textOutput = textOutput.replace(/^```[a-z]*\n/, "").replace(/```$/, "");
+  }
+
+  try {
+    return JSON.parse(textOutput.trim());
+  } catch (err) {
+    throw new Error('Failed to parse generated test cases as JSON: ' + err.message);
+  }
+}
+
+// Chat-based refinement
+async function chatRefine(messages, currentTestCases) {
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+  const systemPrompt = `You are a helpful QA assistant. You are refining a set of test cases based on a conversation.
+Respond with a JSON object containing two fields:
+1. "testCases": The updated list of test cases (same structure as input).
+2. "assistantMessage": A brief, professional explanation of the changes made.
+
+Structure:
+{
+  "testCases": [...],
+  "assistantMessage": "..."
+}
+
+No markdown, just raw JSON.`;
+
+  const userPrompt = `CURRENT TEST CASES:\n${JSON.stringify(currentTestCases, null, 2)}\n\nCONVERSATION HISTORY:\n${JSON.stringify(messages, null, 2)}`;
+
+  const result = await model.generateContent([
+    { text: systemPrompt },
+    { text: userPrompt }
+  ]);
+
+  let textOutput = result.response.text();
+  if (textOutput.startsWith("```")) {
+    textOutput = textOutput.replace(/^```[a-z]*\n/, "").replace(/```$/, "");
+  }
+
+  try {
+    return JSON.parse(textOutput.trim());
+  } catch (err) {
+    throw new Error('Failed to parse chat refinement as JSON: ' + err.message);
+  }
+}
+
 module.exports = {
   generateAutomationScript,
   refineTestCases,
-  generateTestCasesFromText
+  generateTestCasesFromText,
+  generateTestCases,
+  chatRefine
 };

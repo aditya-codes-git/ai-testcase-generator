@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type { TestCase } from '../components/ui/TestCaseTable';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -9,16 +11,20 @@ export interface ChatMessage {
 
 export async function generateTestCases(feature: string) {
   try {
-    const { data, error } = await supabase.functions.invoke('generate-testcases', {
-      body: { feature }
+    const response = await fetch(`${API_BASE_URL}/generate-testcases`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ feature })
     });
 
-    if (error) {
-      console.error('Error invoking edge function:', error);
-      throw new Error(error.message || 'Failed to generate test cases.');
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to generate test cases.');
     }
 
-    return data;
+    return body.data;
   } catch (err: any) {
     console.error('API Error:', err);
     throw err;
@@ -30,7 +36,7 @@ export async function refineTestCases(
   instruction: string
 ) {
   try {
-    const response = await fetch('http://localhost:8080/refine-testcases', {
+    const response = await fetch(`${API_BASE_URL}/refine-testcases`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -56,20 +62,20 @@ export async function chatRefine(
   testCaseId?: string
 ) {
   try {
-    const { data, error } = await supabase.functions.invoke('chat-refine-v2', {
-      body: { messages, currentTestCases, testCaseId }
+    const response = await fetch(`${API_BASE_URL}/chat-refine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ messages, currentTestCases, testCaseId })
     });
 
-    if (error) {
-      console.error('Error invoking chat-refine function:', error);
-      throw new Error(error.message || 'Failed to refine test cases via chat.');
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to refine test cases via chat.');
     }
 
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-
-    return data as {
+    return body.data as {
       testCases: TestCase[];
       assistantMessage: string;
     };
@@ -126,7 +132,7 @@ export async function generateAutomationScript(
   framework: string = 'selenium-testng'
 ) {
   try {
-    const response = await fetch('http://localhost:8080/generate-script', {
+    const response = await fetch(`${API_BASE_URL}/generate-script`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -141,14 +147,12 @@ export async function generateAutomationScript(
 
     const script = body.data.script;
     
-    // Save generated script to Supabase (mimicking what edge function did)
-    // The instructions said "DO NOT directly modify DB" from the backend, 
-    // so frontend has to do it.
+    // Save generated script to Supabase
     const { error: dbError } = await supabase.from('test_case_scripts').upsert({
       test_case_id: testCaseId,
       version: version,
       script_content: script
-    }, { onConflict: 'test_case_id, version' });
+    }, { onConflict: 'test_case_id,version' });
     
     if (dbError) {
       console.error('Failed to save script to database:', dbError);
@@ -184,4 +188,27 @@ export async function fetchAutomationScript(testCaseId: string, version?: number
     return null;
   }
   return data?.[0] || null;
+}
+
+// Vision API implementation
+export async function generateFromImage(imageFile: File) {
+  try {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch(`${API_BASE_URL}/generate-from-image`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to generate test cases from image.');
+    }
+
+    return body.data;
+  } catch (err: any) {
+    console.error('Vision API Error:', err);
+    throw err;
+  }
 }

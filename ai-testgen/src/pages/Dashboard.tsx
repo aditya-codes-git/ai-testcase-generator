@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
-import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check } from "lucide-react"
+import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check, Trash2, UploadCloud } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
 import { TwoLevelSidebar, type PrimaryTab } from "../components/ui/sidebar-component"
@@ -38,8 +38,11 @@ export default function Dashboard({ session }: { session: any }) {
       testExecutionDate: string;
     };
     testCases?: TestCase[];
+    rawStringTestCases?: string;
+    extractedText?: string;
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   // Refinement State
   const [refineInstruction, setRefineInstruction] = useState("")
@@ -136,12 +139,86 @@ export default function Dashboard({ session }: { session: any }) {
     }
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setIsUploadingImage(true)
+      setError(null)
+      
+      const formData = new FormData()
+      formData.append("image", file)
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/generate-from-image`, {
+        method: "POST",
+        body: formData
+      })
+      
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Unexpected server response: ${text.substring(0, 100)}`);
+      }
+
+      if (!response.ok || !data.success) {
+        console.error("Backend Error Details:", data);
+        throw new Error(data.error || "Failed to process image");
+      }
+
+      const newResult = {
+        projectDetails: {
+          projectName: "UI Image Analysis",
+          priority: "Medium",
+          description: "Test cases generated from uploaded application screenshot.",
+          testCaseAuthor: session.user.email,
+          testCaseReviewer: "Pending",
+          testCaseVersion: "1.0",
+          testExecutionDate: new Date().toLocaleDateString()
+        },
+        rawStringTestCases: data.testCases,
+        extractedText: data.extractedText
+      }
+
+      // Save to Supabase
+      const { data: insertedData, error: dbError } = await supabase.from('test_cases').insert([
+        {
+          user_id: session.user.id,
+          feature_text: "Screenshot Upload",
+          generated_json: newResult,
+          created_at: new Date().toISOString()
+        }
+      ]).select().single()
+
+      if (dbError) {
+        console.warn("Could not save to history:", dbError)
+      } else if (insertedData) {
+        setCurrentTestCaseId(insertedData.id)
+        setTestCaseVersion(1)
+        setAutomationScript(null)
+        setActiveReportTab('testCases')
+        fetchHistory()
+      }
+      
+      setResult(newResult)
+    } catch (err: any) {
+      console.error("HandleImageUpload error:", err)
+      setError(err.message || "Failed to process screenshot")
+    } finally {
+      setIsUploadingImage(false)
+      if (e.target) e.target.value = '' // reset input
+    }
+  }
+
   const handleGenerateScript = async () => {
     setActiveReportTab('script');
-    const testCasesToUse = result?.testCases || selectedHistoryItem?.generated_json?.testCases;
+    const testCasesToUse = result?.testCases || (result?.rawStringTestCases ? [] : null) || selectedHistoryItem?.generated_json?.testCases || (selectedHistoryItem?.generated_json?.rawStringTestCases ? [] : null);
 
     if (!testCasesToUse) {
-      alert("No test cases found to generate a script from.");
+      alert("No structured test cases found to generate a script from. Please ensure it's not a raw string generation.");
       return;
     }
     
@@ -221,6 +298,33 @@ export default function Dashboard({ session }: { session: any }) {
       setRefineError(err.message || "Failed to refine test cases")
     } finally {
       setRefining(false)
+    }
+  }
+
+  const handleDeleteHistoryItem = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!window.confirm("Are you sure you want to delete this report? This will remove all associated test cases, scripts, and chat history.")) return
+
+    try {
+      // 1. Optimistic UI update
+      setHistory(prev => prev.filter(item => item.id !== id))
+      if (selectedHistoryItem?.id === id) {
+        setSelectedHistoryItem(null)
+        setResult(null)
+      }
+
+      // 2. Delete associated data (Supabase)
+      // Since we don't know for sure if cascade is on, we'll try to delete everything
+      await supabase.from('test_case_scripts').delete().eq('test_case_id', id)
+      await supabase.from('chat_messages').delete().eq('test_case_id', id)
+      const { error } = await supabase.from('test_cases').delete().eq('id', id)
+
+      if (error) throw error
+    } catch (err: any) {
+      console.error("Delete history error:", err)
+      alert("Failed to delete report: " + err.message)
+      // Rollback optimistic update
+      fetchHistory()
     }
   }
 
@@ -367,19 +471,36 @@ export default function Dashboard({ session }: { session: any }) {
                       <span className="flex items-center gap-1"><Activity className="w-3.5 h-3.5" /> High Quality Output</span>
                       <span className="flex items-center gap-1"><ListChecks className="w-3.5 h-3.5" /> Auto-saved to History</span>
                     </div>
-                    <button 
-                      onClick={handleGenerate}
-                      disabled={loading || !featureDesc.trim()}
-                      className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BrainCircuit className="w-5 h-5" />}
-                      {loading ? "Generating..." : "Generate Professional Tests"}
-                    </button>
+                    <div className="flex gap-3">
+                      <input 
+                        type="file" 
+                        id="screenshot-upload" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={loading || isUploadingImage}
+                      />
+                      <label 
+                        htmlFor="screenshot-upload"
+                        className={`flex items-center gap-2 px-6 py-3 rounded-xl bg-card border border-border/50 text-foreground font-semibold hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer shadow-sm ${isUploadingImage || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <UploadCloud className="w-4 h-4 text-primary" />}
+                        {isUploadingImage ? "Parsing Image..." : "Upload Screenshot"}
+                      </label>
+                      <button 
+                        onClick={handleGenerate}
+                        disabled={loading || !featureDesc.trim() || isUploadingImage}
+                        className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 shadow-sm"
+                      >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BrainCircuit className="w-5 h-5" />}
+                        {loading ? "Generating..." : "Generate Professional Tests"}
+                      </button>
+                    </div>
                   </div>
                   {error && <div className="mt-5 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm">{error}</div>}
                 </div>
 
-                {result && result.testCases && result.testCases.length > 0 && (
+                {((result?.testCases && result.testCases.length > 0) || result?.rawStringTestCases) && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 bg-muted/20 p-6 rounded-2xl border border-border/50">
                       <div className="space-y-2">
@@ -408,7 +529,7 @@ export default function Dashboard({ session }: { session: any }) {
                         <div className="flex items-center gap-2">
                           <RefreshCw className="w-4 h-4 text-primary" />
                           <h4 className="font-semibold text-sm">Refine Test Cases</h4>
-                          <span className="text-[10px] text-muted-foreground ml-auto uppercase tracking-widest font-bold">{result.testCases.length} cases loaded</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto uppercase tracking-widest font-bold">{result.testCases?.length || 0} cases loaded</span>
                         </div>
 
                         {/* Quick Action Chips */}
@@ -484,7 +605,36 @@ export default function Dashboard({ session }: { session: any }) {
                     </div>
 
                     {activeReportTab === 'testCases' && (
-                      <TestCaseTable testCases={result.testCases} />
+                      result.testCases && result.testCases.length > 0 ? (
+                        <TestCaseTable testCases={result.testCases} />
+                      ) : (
+                        <div className="bg-[#1e1e1e] rounded-xl border border-border/50 overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-border/50">
+                            <span className="text-xs font-mono text-muted-foreground">Raw Test Cases (from Screenshot)</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  if (result.rawStringTestCases) {
+                                    navigator.clipboard.writeText(result.rawStringTestCases);
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-xs font-medium text-muted-foreground hover:text-white transition-all"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> Copy
+                              </button>
+                            </div>
+                          </div>
+                          {result.extractedText && (
+                            <div className="p-4 border-b border-border/50 bg-black/20">
+                              <p className="text-xs font-bold text-muted-foreground mb-2">EXTRACTED UI TEXT:</p>
+                              <p className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">{result.extractedText}</p>
+                            </div>
+                          )}
+                          <pre className="p-4 overflow-auto max-h-[600px] text-sm font-mono text-emerald-400 bg-transparent leading-relaxed whitespace-pre-wrap word-break">
+                            {result.rawStringTestCases}
+                          </pre>
+                        </div>
+                      )
                     )}
 
                     {activeReportTab === 'script' && (
@@ -598,8 +748,17 @@ export default function Dashboard({ session }: { session: any }) {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 text-primary font-bold text-sm whitespace-nowrap">
-                              View Report <ChevronRight className="w-4 h-4" />
+                            <div className="flex items-center gap-4">
+                              <div className="hidden md:flex items-center gap-2 text-primary font-bold text-sm whitespace-nowrap">
+                                View Report <ChevronRight className="w-4 h-4" />
+                              </div>
+                              <button
+                                onClick={(e) => handleDeleteHistoryItem(item.id, e)}
+                                className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Delete Report"
+                              >
+                                <Trash2 className="w-5 h-5 transition-transform active:scale-90" />
+                              </button>
                             </div>
                           </div>
                         ))}
