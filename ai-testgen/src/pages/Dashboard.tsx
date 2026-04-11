@@ -550,21 +550,7 @@ export default function Dashboard({ session }: { session: any }) {
                         <span className="flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5 text-violet-400/60" /> Auto-saved to History</span>
                       </div>
                       <div className="flex gap-3">
-                        <input 
-                          type="file" 
-                          id="screenshot-upload" 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          disabled={loading || isUploadingImage}
-                        />
-                        <label 
-                          htmlFor="screenshot-upload"
-                          className={`flex items-center gap-2 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-foreground/80 font-semibold hover:border-violet-500/30 hover:bg-white/[0.05] transition-all cursor-pointer text-sm ${isUploadingImage || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-violet-400" /> : <UploadCloud className="w-4 h-4 text-violet-400" />}
-                          {isUploadingImage ? "Parsing Image..." : "Upload Screenshot"}
-                        </label>
+
                         <button 
                           onClick={handleGenerate}
                           disabled={loading || !featureDesc.trim() || isUploadingImage}
