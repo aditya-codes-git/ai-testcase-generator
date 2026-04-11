@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
-import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, Plane, RefreshCw, Wand2, ChevronDown, ChevronUp } from "lucide-react"
+import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
 import { TwoLevelSidebar, type PrimaryTab } from "../components/ui/sidebar-component"
 import ExcelJS from "exceljs"
 import { saveAs } from "file-saver"
-import { generateTestCases, refineTestCases } from "../lib/api"
+import { generateTestCases, refineTestCases, generateAutomationScript, fetchAutomationScript } from "../lib/api"
 import { cn } from "../lib/utils"
 import { AiChatPanel } from "../components/ui/AiChatPanel"
 
@@ -18,6 +18,14 @@ export default function Dashboard({ session }: { session: any }) {
   const [activeTab, setActiveTab] = useState<PrimaryTab>("dashboard")
   const [activeSecondaryTab, setActiveSecondaryTab] = useState("overview")
   
+  // Script State
+  const [currentTestCaseId, setCurrentTestCaseId] = useState<string | null>(null);
+  const [testCaseVersion, setTestCaseVersion] = useState(1);
+  const [automationScript, setAutomationScript] = useState<string | null>(null);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [activeReportTab, setActiveReportTab] = useState<'testCases' | 'script'>('testCases');
+  const [copiedScript, setCopiedScript] = useState(false);
+
   // Generator State
   const [result, setResult] = useState<{
     projectDetails?: {
@@ -100,19 +108,22 @@ export default function Dashboard({ session }: { session: any }) {
       }
       
       // Save to Supabase
-      const { error: dbError } = await supabase.from('test_cases').insert([
+      const { data: insertedData, error: dbError } = await supabase.from('test_cases').insert([
         {
           user_id: session.user.id,
           feature_text: featureDesc,
           generated_json: data,
           created_at: new Date().toISOString()
         }
-      ])
+      ]).select().single()
 
       if (dbError) {
         console.warn("Could not save to history:", dbError)
-      } else {
-        // Optimistically update history if it's already fetched
+      } else if (insertedData) {
+        setCurrentTestCaseId(insertedData.id)
+        setTestCaseVersion(1)
+        setAutomationScript(null)
+        setActiveReportTab('testCases')
         fetchHistory()
       }
       
@@ -122,6 +133,48 @@ export default function Dashboard({ session }: { session: any }) {
       setError(err.message || "Failed to generate test cases")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGenerateScript = async () => {
+    setActiveReportTab('script');
+    const testCasesToUse = result?.testCases || selectedHistoryItem?.generated_json?.testCases;
+
+    if (!testCasesToUse) {
+      alert("No test cases found to generate a script from.");
+      return;
+    }
+    
+    if (!currentTestCaseId) {
+      alert("Test case ID missing. Please try regenerating the test cases first.");
+      return;
+    }
+
+    try {
+      setIsGeneratingScript(true);
+      const res = await generateAutomationScript(currentTestCaseId, testCasesToUse, testCaseVersion, 'java', 'selenium-testng');
+      setAutomationScript(res.script);
+      setTestCaseVersion(res.version);
+    } catch (err: any) {
+      console.error("Generate script error:", err);
+      alert("Error generating script: " + (err.message || "Unknown error"));
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  }
+
+  const handleSelectHistoryItem = async (item: any) => {
+    setSelectedHistoryItem(item)
+    setCurrentTestCaseId(item.id)
+    setTestCaseVersion(1)
+    setAutomationScript(null)
+    setActiveReportTab('testCases')
+    
+    // Fetch script async
+    const scriptRec = await fetchAutomationScript(item.id)
+    if (scriptRec) {
+      setAutomationScript(scriptRec.script_content)
+      setTestCaseVersion(scriptRec.version)
     }
   }
 
@@ -144,6 +197,25 @@ export default function Dashboard({ session }: { session: any }) {
       }))
       setRefineSummary(data.refinementSummary || `Refined with: "${instruction}"`)
       setRefineInstruction("")
+      
+      if (currentTestCaseId) {
+        const newVersion = testCaseVersion + 1;
+        setTestCaseVersion(newVersion);
+        
+        // Auto trigger script update in background
+        setIsGeneratingScript(true);
+        generateAutomationScript(currentTestCaseId, data.testCases, newVersion, 'java', 'selenium-testng')
+          .then(res => {
+            setAutomationScript(res.script);
+          })
+          .catch(err => {
+            console.error("Auto script generation failed:", err);
+          })
+          .finally(() => {
+            setIsGeneratingScript(false);
+          });
+      }
+      
     } catch (err: any) {
       console.error("HandleRefine error:", err)
       setRefineError(err.message || "Failed to refine test cases")
@@ -322,7 +394,11 @@ export default function Dashboard({ session }: { session: any }) {
                           <Wand2 className="w-4 h-4" /> Refine
                           {showRefinePanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                         </button>
-                        <button onClick={() => handleDownloadExcel()} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"><Download className="w-4 h-4" /> Export XLSX</button>
+                        <button onClick={handleGenerateScript} disabled={isGeneratingScript} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 shrink-0 disabled:opacity-50">
+                          {isGeneratingScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />}
+                          Script
+                        </button>
+                        <button onClick={() => handleDownloadExcel()} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all disabled:opacity-50"><Download className="w-4 h-4" /> Export XLSX</button>
                       </div>
                     </div>
 
@@ -385,7 +461,96 @@ export default function Dashboard({ session }: { session: any }) {
                       </div>
                     )}
 
-                    <TestCaseTable testCases={result.testCases} />
+                    {/* Report Tabs */}
+                    <div className="flex border-b border-border/50 mb-4 overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={() => setActiveReportTab('testCases')}
+                        className={cn(
+                          "px-6 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap",
+                          activeReportTab === 'testCases' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Test Cases
+                      </button>
+                      <button
+                        onClick={() => setActiveReportTab('script')}
+                        className={cn(
+                          "px-6 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap",
+                          activeReportTab === 'script' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Automation Script {testCaseVersion > 1 ? `(v${testCaseVersion})` : ''}
+                      </button>
+                    </div>
+
+                    {activeReportTab === 'testCases' && (
+                      <TestCaseTable testCases={result.testCases} />
+                    )}
+
+                    {activeReportTab === 'script' && (
+                      <div className="bg-[#1e1e1e] rounded-xl border border-border/50 overflow-hidden">
+                        {isGeneratingScript ? (
+                          <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+                            <p className="text-muted-foreground">Generating automation script...</p>
+                          </div>
+                        ) : automationScript ? (
+                          <div className="flex flex-col h-full max-h-[600px]">
+                            <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-border/50">
+                              <span className="text-xs font-mono text-muted-foreground">Java (Selenium + TestNG)</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handleGenerateScript}
+                                  disabled={isGeneratingScript}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/20 hover:bg-primary/20 text-muted-foreground hover:text-primary rounded-md text-xs font-medium transition-all"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(automationScript);
+                                    setCopiedScript(true);
+                                    setTimeout(() => setCopiedScript(false), 2000);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-xs font-medium text-muted-foreground hover:text-white transition-all"
+                                >
+                                  {copiedScript ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                  {copiedScript ? 'Copied' : 'Copy'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const blob = new Blob([automationScript], { type: "text/plain;charset=utf-8" });
+                                    saveAs(blob, `AutomationTest_v${testCaseVersion}.java`);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/20 rounded-md text-xs font-medium transition-all"
+                                >
+                                  <Download className="w-3.5 h-3.5" />.java
+                                </button>
+                              </div>
+                            </div>
+                            <pre className="p-4 overflow-auto text-sm font-mono text-emerald-400 bg-transparent leading-relaxed whitespace-pre-wrap word-break">
+                              {automationScript}
+                            </pre>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-12 text-center">
+                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                              <FileCode2 className="w-6 h-6 text-primary" />
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">No Script Generated</h3>
+                            <p className="text-muted-foreground text-sm max-w-sm mb-6">
+                              Generate a Java Selenium automation script based on these test cases.
+                            </p>
+                            <button
+                              onClick={handleGenerateScript}
+                              className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold flex items-center gap-2 rounded-xl transition-all hover:bg-primary/90 hover:scale-105 active:scale-95"
+                            >
+                              <FileCode2 className="w-4 h-4" /> Generate Script
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -417,7 +582,7 @@ export default function Dashboard({ session }: { session: any }) {
                         {history.map((item) => (
                           <div 
                             key={item.id}
-                            onClick={() => setSelectedHistoryItem(item)}
+                            onClick={() => handleSelectHistoryItem(item)}
                             className="bg-card rounded-xl border border-border/50 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-primary/50 transition-all cursor-pointer group hover:shadow-md"
                           >
                             <div className="flex gap-4 items-start">
@@ -464,15 +629,114 @@ export default function Dashboard({ session }: { session: any }) {
                              <p className="text-muted-foreground text-sm max-w-2xl line-clamp-2">{selectedHistoryItem.generated_json.projectDetails?.description}</p>
                              <p className="text-xs text-muted-foreground bg-background/50 p-3 rounded-lg border border-border/30 mt-4 italic line-clamp-2">"{selectedHistoryItem.feature_text}"</p>
                           </div>
-                          <button onClick={() => handleDownloadExcel(selectedHistoryItem.generated_json)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 shrink-0"><Download className="w-4 h-4" /> Export</button>
+                          <div className="flex items-center gap-3">
+                            <button onClick={handleGenerateScript} disabled={isGeneratingScript} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 shrink-0 disabled:opacity-50">
+                              {isGeneratingScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />}
+                              Script
+                            </button>
+                            <button onClick={() => handleDownloadExcel(selectedHistoryItem.generated_json)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 shrink-0"><Download className="w-4 h-4" /> Export</button>
+                          </div>
                         </div>
                         
-                        <div className="flex-1 overflow-auto rounded-2xl border border-border/50 bg-card/40">
-                          <TestCaseTable testCases={selectedHistoryItem.generated_json.testCases} />
+                        <div className="flex-1 flex flex-col min-h-0">
+                          {/* Report Tabs */}
+                          <div className="flex border-b border-border/50 mb-4 shrink-0 overflow-x-auto no-scrollbar">
+                            <button
+                              onClick={() => setActiveReportTab('testCases')}
+                              className={cn(
+                                "px-6 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap",
+                                activeReportTab === 'testCases' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Test Cases
+                            </button>
+                            <button
+                              onClick={() => setActiveReportTab('script')}
+                              className={cn(
+                                "px-6 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap",
+                                activeReportTab === 'script' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Automation Script {testCaseVersion > 1 ? `(v${testCaseVersion})` : ''}
+                            </button>
+                          </div>
+
+                          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-border/50 bg-card/40 relative">
+                            {activeReportTab === 'testCases' && (
+                              <TestCaseTable testCases={selectedHistoryItem.generated_json.testCases} />
+                            )}
+
+                            {activeReportTab === 'script' && (
+                              <div className="absolute inset-0 bg-[#1e1e1e] overflow-hidden flex flex-col">
+                                {isGeneratingScript ? (
+                                  <div className="flex flex-col items-center justify-center py-20 h-full">
+                                    <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+                                    <p className="text-muted-foreground">Generating automation script...</p>
+                                  </div>
+                                ) : automationScript ? (
+                                  <div className="flex flex-col h-full">
+                                    <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-border/50 shrink-0">
+                                      <span className="text-xs font-mono text-muted-foreground">Java (Selenium + TestNG)</span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={handleGenerateScript}
+                                          disabled={isGeneratingScript}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/20 hover:bg-primary/20 text-muted-foreground hover:text-primary rounded-md text-xs font-medium transition-all"
+                                        >
+                                          <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(automationScript);
+                                            setCopiedScript(true);
+                                            setTimeout(() => setCopiedScript(false), 2000);
+                                          }}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-xs font-medium text-muted-foreground hover:text-white transition-all"
+                                        >
+                                          {copiedScript ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                          {copiedScript ? 'Copied' : 'Copy'}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            const blob = new Blob([automationScript], { type: "text/plain;charset=utf-8" });
+                                            saveAs(blob, `AutomationTest_v${testCaseVersion}.java`);
+                                          }}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/20 rounded-md text-xs font-medium transition-all"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />.java
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 overflow-auto min-h-0 bg-[#1e1e1e]">
+                                      <pre className="p-4 text-sm font-mono text-emerald-400 leading-relaxed whitespace-pre-wrap word-break">
+                                        {automationScript}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center p-12 text-center h-full">
+                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                      <FileCode2 className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold mb-2">No Script Generated</h3>
+                                    <p className="text-muted-foreground text-sm max-w-sm mb-6">
+                                      Generate a Java Selenium automation script based on these test cases.
+                                    </p>
+                                    <button
+                                      onClick={handleGenerateScript}
+                                      className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold flex items-center gap-2 rounded-xl transition-all hover:bg-primary/90 hover:scale-105 active:scale-95"
+                                    >
+                                      <FileCode2 className="w-4 h-4" /> Generate Script
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* RIGHT: AI Chat Panel (35%) */}
+                        {/* RIGHT: AI Chat Panel (35%) */}
                       <div className="lg:w-[35%] rounded-2xl border border-border/50 bg-card overflow-hidden flex flex-col shadow-inner">
                         <AiChatPanel 
                           testCases={selectedHistoryItem.generated_json.testCases}
@@ -495,6 +759,15 @@ export default function Dashboard({ session }: { session: any }) {
                             
                             try {
                               await supabase.from('test_cases').update({ generated_json: updatedHistoryItem.generated_json }).eq('id', selectedHistoryItem.id);
+                              
+                              if (selectedHistoryItem.id) {
+                                setTestCaseVersion(newVersion);
+                                setIsGeneratingScript(true);
+                                generateAutomationScript(selectedHistoryItem.id, newTestCases, newVersion, 'java', 'selenium-testng')
+                                  .then(res => setAutomationScript(res.script))
+                                  .catch(err => console.error("Auto script generation error:", err))
+                                  .finally(() => setIsGeneratingScript(false));
+                              }
                             } catch (e) {
                               console.warn("Update error:", e)
                             }

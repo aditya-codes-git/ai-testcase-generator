@@ -114,3 +114,56 @@ export async function loadChatMessages(testCaseId: string) {
     version: msg.version
   }));
 }
+
+export async function generateAutomationScript(
+  testCaseId: string,
+  testCases: TestCase[],
+  version: number = 1,
+  language: string = 'java',
+  framework: string = 'selenium-testng'
+) {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-script', {
+      body: { testCaseId, testCases, version, language, framework }
+    });
+
+    if (error) {
+      console.error('Error invoking generate-script function:', error);
+      throw new Error(error.message || 'Failed to generate automation script.');
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data as { script: string, version: number };
+  } catch (err: any) {
+    console.error('Generate Script API Error:', err);
+    throw err;
+  }
+}
+
+export async function fetchAutomationScript(testCaseId: string, version?: number) {
+  let query = supabase
+    .from('test_case_scripts')
+    .select('*')
+    .eq('test_case_id', testCaseId)
+    .order('version', { ascending: false })
+    .limit(1);
+
+  if (version !== undefined) {
+    query = supabase
+      .from('test_case_scripts')
+      .select('*')
+      .eq('test_case_id', testCaseId)
+      .eq('version', version)
+      .limit(1);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn('Failed to load automation script:', error);
+    return null;
+  }
+  return data?.[0] || null;
+}
