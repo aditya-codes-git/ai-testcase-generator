@@ -26,21 +26,24 @@ export async function generateTestCases(feature: string) {
 }
 
 export async function refineTestCases(
-  originalPrompt: string,
   currentTestCases: TestCase[],
   instruction: string
 ) {
   try {
-    const { data, error } = await supabase.functions.invoke('refine-testcases', {
-      body: { originalPrompt, currentTestCases, instruction }
+    const response = await fetch('http://localhost:8080/refine-testcases', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ currentTestCases, instruction })
     });
 
-    if (error) {
-      console.error('Error invoking refine function:', error);
-      throw new Error(error.message || 'Failed to refine test cases.');
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to refine test cases.');
     }
 
-    return data;
+    return body.data;
   } catch (err: any) {
     console.error('Refine API Error:', err);
     throw err;
@@ -123,20 +126,35 @@ export async function generateAutomationScript(
   framework: string = 'selenium-testng'
 ) {
   try {
-    const { data, error } = await supabase.functions.invoke('generate-script', {
-      body: { testCaseId, testCases, version, language, framework }
+    const response = await fetch('http://localhost:8080/generate-script', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ testCases, language, framework })
     });
 
-    if (error) {
-      console.error('Error invoking generate-script function:', error);
-      throw new Error(error.message || 'Failed to generate automation script.');
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to generate automation script.');
     }
 
-    if (data?.error) {
-      throw new Error(data.error);
+    const script = body.data.script;
+    
+    // Save generated script to Supabase (mimicking what edge function did)
+    // The instructions said "DO NOT directly modify DB" from the backend, 
+    // so frontend has to do it.
+    const { error: dbError } = await supabase.from('test_case_scripts').upsert({
+      test_case_id: testCaseId,
+      version: version,
+      script_content: script
+    }, { onConflict: 'test_case_id, version' });
+    
+    if (dbError) {
+      console.error('Failed to save script to database:', dbError);
     }
 
-    return data as { script: string, version: number };
+    return { script, version };
   } catch (err: any) {
     console.error('Generate Script API Error:', err);
     throw err;

@@ -185,7 +185,7 @@ export default function Dashboard({ session }: { session: any }) {
       setRefining(true)
       setRefineError(null)
       setRefineSummary(null)
-      const data = await refineTestCases(featureDesc, result.testCases, instruction)
+      const data = await refineTestCases(result.testCases, instruction)
 
       if (!data || !data.testCases) {
         throw new Error("Received empty or invalid refinement data.")
