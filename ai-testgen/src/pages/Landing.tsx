@@ -42,8 +42,7 @@ export default function Landing() {
       <header className="fixed top-0 w-full z-[100] px-6 py-8 pointer-events-none">
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <Plane className="w-8 h-8 text-white group-hover:rotate-12 transition-transform" />
-            <span className="text-2xl font-bold tracking-tight">TestPilot <span className="text-white/60">AI</span></span>
+            <img src="/Logo/logo_full.png" alt="TestPilot AI" className="h-12 w-auto group-hover:scale-105 transition-transform" />
           </div>
           
           <nav className="hidden lg:flex flex-1 justify-center">

@@ -254,9 +254,7 @@ export default function Dashboard({ session }: { session: any }) {
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-background/50">
         <header className="h-[72px] border-b border-border/50 bg-card/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-sm sticky top-0 z-10">
-          <div className="text-xl font-bold flex items-center gap-2 ml-10 cursor-pointer group" onClick={() => navigate("/")}>
-            <Plane className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" /> TestPilot <span className="text-primary">AI</span>
-          </div>
+          <div className="flex-1"></div>
           <h1 className="text-xl font-semibold hidden md:block tracking-tight capitalize">
             {activeSecondaryTab === 'overview' ? 'AI Generator' : activeSecondaryTab}
           </h1>
