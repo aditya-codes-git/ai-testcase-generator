@@ -18,8 +18,7 @@ const REQUIRED_ENV_VARS = ['GROQ_API_KEY', 'GEMINI_API_KEY'];
 const missingVars = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
 
 if (missingVars.length > 0) {
-  console.error('\x1b[31m%s\x1b[0m', `FATAL ERROR: Missing required environment variables: ${missingVars.join(', ')}`);
-  process.exit(1);
+  console.warn(`Missing env vars: ${missingVars.join(', ')}`);
 }
 
 const app = express();
@@ -32,7 +31,12 @@ app.use(express.json());
 // Set up multer for handling multipart/form-data (image uploads)
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 3. Robust Health Check (Bonus)
+// 3. Root Health Route (GCP Default Probes)
+app.get('/', (req, res) => {
+  res.send('Backend running');
+});
+
+// 4. Robust Health Check (Detailed)
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     success: true, 
