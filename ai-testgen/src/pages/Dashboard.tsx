@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { supabase } from "../lib/supabase"
 import { useNavigate } from "react-router-dom"
-import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check, Trash2, UploadCloud } from "lucide-react"
+import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check, Trash2 } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
 import { TwoLevelSidebar } from "../components/ui/sidebar-component"
@@ -110,8 +110,7 @@ export default function Dashboard({ session }: { session: any }) {
     rawStringTestCases?: string;
     extractedText?: string;
   } | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isUploadingImage, setIsUploadingImage] = useState(false)
+
 
   // Refinement State
   const [refineInstruction, setRefineInstruction] = useState("")
@@ -208,79 +207,6 @@ export default function Dashboard({ session }: { session: any }) {
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    try {
-      setIsUploadingImage(true)
-      setError(null)
-      
-      const formData = new FormData()
-      formData.append("image", file)
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/generate-from-image`, {
-        method: "POST",
-        body: formData
-      })
-      
-      const contentType = response.headers.get("content-type");
-      let data;
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(`Unexpected server response: ${text.substring(0, 100)}`);
-      }
-
-      if (!response.ok || !data.success) {
-        console.error("Backend Error Details:", data);
-        throw new Error(data.error || "Failed to process image");
-      }
-
-      const newResult = {
-        projectDetails: data.projectDetails || {
-          projectName: "UI Image Analysis",
-          priority: "Medium",
-          description: "Test cases generated from uploaded application screenshot.",
-          testCaseAuthor: session.user.email,
-          testCaseReviewer: "Pending",
-          testCaseVersion: "1.0",
-          testExecutionDate: new Date().toLocaleDateString()
-        },
-        testCases: Array.isArray(data.testCases) ? data.testCases : [],
-        extractedText: data.extractedText
-      }
-
-      // Save to Supabase
-      const { data: insertedData, error: dbError } = await supabase.from('test_cases').insert([
-        {
-          user_id: session.user.id,
-          feature_text: "Screenshot Upload",
-          generated_json: newResult,
-          created_at: new Date().toISOString()
-        }
-      ]).select().single()
-
-      if (dbError) {
-        console.warn("Could not save to history:", dbError)
-      } else if (insertedData) {
-        setCurrentTestCaseId(insertedData.id)
-        setTestCaseVersion(1)
-        setAutomationScript(null)
-        setActiveReportTab('testCases')
-        fetchHistory()
-      }
-      
-      setResult(newResult)
-    } catch (err: any) {
-      console.error("HandleImageUpload error:", err)
-      setError(err.message || "Failed to process screenshot")
-    } finally {
-      setIsUploadingImage(false)
-      if (e.target) e.target.value = '' // reset input
-    }
-  }
 
   const handleGenerateScript = async () => {
     setActiveReportTab('script');
@@ -553,7 +479,7 @@ export default function Dashboard({ session }: { session: any }) {
 
                         <button 
                           onClick={handleGenerate}
-                          disabled={loading || !featureDesc.trim() || isUploadingImage}
+                          disabled={loading || !featureDesc.trim()}
                           className="flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:from-violet-500 hover:to-indigo-500 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98] text-sm"
                         >
                           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BrainCircuit className="w-5 h-5" />}
