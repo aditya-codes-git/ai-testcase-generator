@@ -3,26 +3,19 @@
 import { useState } from "react";
 import {
   Dashboard,
-  Task,
-  Folder,
-  Calendar as CalendarIcon,
-  Analytics,
   User as UserIcon,
   Search as SearchIcon,
   AddLarge,
   Report,
   ChartBar,
   View,
-  CheckmarkOutline,
-  InProgress,
-  Archive,
   Logout,
   Menu,
   Plane
 } from "@carbon/icons-react";
 import { cn } from "../../lib/utils";
 
-export type PrimaryTab = "dashboard" | "tasks" | "projects" | "calendar" | "analytics";
+export type PrimaryTab = "dashboard";
 
 interface SidebarProps {
   userEmail?: string;
@@ -47,32 +40,15 @@ export function TwoLevelSidebar({
 
   const primaryNav = [
     { id: "dashboard", icon: Dashboard, label: "Dashboard" },
-    { id: "tasks", icon: Task, label: "Tasks" },
-    { id: "projects", icon: Folder, label: "Projects" },
-    { id: "calendar", icon: CalendarIcon, label: "Calendar" },
-    { id: "analytics", icon: Analytics, label: "Analytics" },
   ];
 
   const getSecondaryNav = () => {
-    switch (activeTab) {
-      case "dashboard":
-        return [
-          { id: "overview", label: "Overview", icon: View },
-          { id: "reports", label: "Reports", icon: Report },
-          { id: "metrics", label: "Metrics", icon: ChartBar },
-        ];
-      case "tasks":
-        return [
-          { id: "all", label: "All Tasks", icon: Task },
-          { id: "in-progress", label: "In Progress", icon: InProgress },
-          { id: "completed", label: "Completed", icon: CheckmarkOutline },
-          { id: "archived", label: "Archived", icon: Archive },
-        ];
-      default:
-        return [
-          { id: "general", label: "General", icon: Folder },
-        ];
-    }
+    // We only have the dashboard tab now
+    return [
+      { id: "overview", label: "Overview", icon: View },
+      { id: "reports", label: "Reports", icon: Report },
+      { id: "metrics", label: "Metrics", icon: ChartBar },
+    ];
   };
 
   return (
