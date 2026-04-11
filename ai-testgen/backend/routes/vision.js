@@ -8,7 +8,7 @@ const { callGroq } = require('../utils/groq');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. Google Vision API Client (Zero-config for Cloud Run ADC)
-const visionClient = new vision.ImageAnnotatorClient();
+const client = new vision.ImageAnnotatorClient();
 
 // POST /generate-from-image
 router.post('/generate-from-image', upload.single('image'), async (req, res) => {
@@ -19,7 +19,7 @@ router.post('/generate-from-image', upload.single('image'), async (req, res) => 
     
     // 2. Vision API Integration
     // Image content is passed directly from memory storage
-    const [result] = await visionClient.textDetection({ 
+    const [result] = await client.textDetection({ 
       image: { content: req.file.buffer } 
     });
 
