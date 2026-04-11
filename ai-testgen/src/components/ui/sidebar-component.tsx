@@ -119,7 +119,7 @@ export function TwoLevelSidebar({
               onClick={() => window.location.href = "/"}
               className="flex items-center gap-2 cursor-pointer group"
             >
-              <img src="/Logo/logo_full.png" alt="TestPilot AI" className="h-10 w-auto group-hover:scale-105 transition-transform" />
+              <img src="/Logo/logo_full.png" alt="TestGen" className="h-10 w-auto group-hover:scale-105 transition-transform" />
             </div>
             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{activeTab}</p>
           </div>

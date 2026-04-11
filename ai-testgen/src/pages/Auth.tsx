@@ -51,7 +51,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black p-4 font-sans">
       <Link to="/" className="absolute top-6 left-6 flex items-center gap-2 hover:opacity-80 transition">
-        <img src="/Logo/logo_full.png" alt="TestPilot AI" className="h-10 w-auto" />
+        <img src="/Logo/logo_full.png" alt="TestGen" className="h-10 w-auto" />
       </Link>
 
       <div className="w-full max-w-md p-8 rounded-2xl bg-white/[0.03] border border-white/10 mt-10 backdrop-blur-xl">

@@ -10,8 +10,8 @@ export default {
         background: '#000000',
         foreground: '#F0F0F0',
         primary: {
-          DEFAULT: '#ffffff',
-          foreground: '#000000',
+          DEFAULT: '#8B5CF6',
+          foreground: '#ffffff',
         },
         card: {
           DEFAULT: '#0a0a0a',

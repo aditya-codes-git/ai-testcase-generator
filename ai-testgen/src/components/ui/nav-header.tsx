@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils";
 
 /**
  * NavHeader: A professional glassmorphic navigation bar with a tracking magnetic cursor.
- * Adapted for TestPilot AI with Framer Motion.
+ * Adapted for TestGen with Framer Motion.
  */
 function NavHeader({ className }: { className?: string }) {
   const [position, setPosition] = useState({
@@ -25,7 +25,6 @@ function NavHeader({ className }: { className?: string }) {
     >
       <Tab setPosition={setPosition} href="#">Home</Tab>
       <Tab setPosition={setPosition} href="#features">Features</Tab>
-      <Tab setPosition={setPosition} href="#pricing">Pricing</Tab>
       <Tab setPosition={setPosition} href="#enterprise">Enterprise</Tab>
 
       <Cursor position={position} />
