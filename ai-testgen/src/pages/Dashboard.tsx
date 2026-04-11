@@ -170,7 +170,7 @@ export default function Dashboard({ session }: { session: any }) {
       }
 
       const newResult = {
-        projectDetails: {
+        projectDetails: data.projectDetails || {
           projectName: "UI Image Analysis",
           priority: "Medium",
           description: "Test cases generated from uploaded application screenshot.",
@@ -179,7 +179,7 @@ export default function Dashboard({ session }: { session: any }) {
           testCaseVersion: "1.0",
           testExecutionDate: new Date().toLocaleDateString()
         },
-        rawStringTestCases: data.testCases,
+        testCases: Array.isArray(data.testCases) ? data.testCases : [],
         extractedText: data.extractedText
       }
 
@@ -215,10 +215,10 @@ export default function Dashboard({ session }: { session: any }) {
 
   const handleGenerateScript = async () => {
     setActiveReportTab('script');
-    const testCasesToUse = result?.testCases || (result?.rawStringTestCases ? [] : null) || selectedHistoryItem?.generated_json?.testCases || (selectedHistoryItem?.generated_json?.rawStringTestCases ? [] : null);
+    const testCasesToUse = result?.testCases || selectedHistoryItem?.generated_json?.testCases;
 
     if (!testCasesToUse) {
-      alert("No structured test cases found to generate a script from. Please ensure it's not a raw string generation.");
+      alert("No structured test cases found to generate a script from.");
       return;
     }
     
@@ -500,7 +500,7 @@ export default function Dashboard({ session }: { session: any }) {
                   {error && <div className="mt-5 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm">{error}</div>}
                 </div>
 
-                {((result?.testCases && result.testCases.length > 0) || result?.rawStringTestCases) && (
+                {result?.testCases && result.testCases.length > 0 && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 bg-muted/20 p-6 rounded-2xl border border-border/50">
                       <div className="space-y-2">

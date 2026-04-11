@@ -61,34 +61,77 @@ router.post('/generate-from-image', upload.single('image'), async (req, res) => 
     }
 
     // 3. AI Processing (Groq)
-    const systemPrompt = "You are a senior QA engineer.";
-    const userPrompt = `Given the following UI text extracted from an application screen:
+    const systemPrompt = "You are a professional QA engineer who outputs strictly valid JSON.";
+    const userPrompt = `You are a professional QA engineer.
+
+Generate structured software test cases based on the following extracted UI text from an application screen.
+
+---
+
+## EXTRACTED UI TEXT
 
 ${extractedText}
 
-Your task is to generate high-quality test cases.
+---
 
-Requirements:
+## OUTPUT FORMAT (STRICT JSON ONLY)
 
-* Include functional test cases
-* Include edge cases
-* Include negative test cases
-* Avoid duplicates
-* Keep test cases practical and realistic
+Return ONLY valid JSON. No explanation. No extra text.
 
-Format strictly as:
+{
+"projectDetails": {
+"projectName": "UI Image Analysis",
+"priority": "Medium",
+"description": "Test cases generated from uploaded application screenshot.",
+"testCaseAuthor": "AI Generator",
+"testCaseReviewer": "",
+"testCaseVersion": "1.0",
+"testExecutionDate": ""
+},
+"testCases": [
+{
+"testCaseId": "TC001",
+"testSteps": [
+"Step 1",
+"Step 2",
+"Step 3"
+],
+"inputData": "",
+"expectedResult": "",
+"actualResult": "",
+"testEnvironment": "Web",
+"executionStatus": "Not Executed",
+"bugSeverity": "None",
+"bugPriority": "None",
+"notes": ""
+}
+]
+}
 
-Test Case ID: TC_001
-Title: <short title>
-Steps:
+---
 
-1. Step 1
-2. Step 2
+## REQUIREMENTS
 
-Expected Result: <expected output>
+* Generate at least 6-10 test cases covering the UI provided
+* Include:
+  * Positive cases
+  * Negative cases
+  * Edge cases
+* Include validation scenarios:
+  * Empty inputs
+  * Invalid formats
+  * Boundary values
+* Ensure all fields are filled meaningfully
+* Steps must be clear and actionable
+* IDs must be sequential (TC001, TC002...)
 
-Return ONLY test cases.
-Do NOT include explanations.`;
+---
+
+## IMPORTANT RULES
+
+* Do NOT skip any field
+* Do NOT return explanations
+* JSON must be valid and directly parsable`;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -96,15 +139,34 @@ Do NOT include explanations.`;
     ];
 
     console.log("Sending extracted text to AI (Groq)...");
-    // Use null for responseFormat since the user strictly wants text, not JSON wrapper
-    const generatedContent = await callGroq(messages, 0.2, null);
-    console.log("AI Generation complete.");
+    const generatedContent = await callGroq(messages, 0.2, { type: "json_object" });
+    console.log("AI Raw Response:", generatedContent);
+
+    // Parse the JSON
+    let parsedData;
+    try {
+      parsedData = JSON.parse(generatedContent);
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError);
+      return res.status(500).json({ success: false, error: "AI returned invalid JSON" });
+    }
+
+    // Ensure testCases is an array
+    if (!parsedData.testCases || !Array.isArray(parsedData.testCases)) {
+      console.error("Malformed AI Response: testCases is not an array");
+      return res.status(500).json({ success: false, error: "AI failed to generate structured test cases" });
+    }
 
     // 4. Return formatted response
     return res.json({
       success: true,
       extractedText: extractedText,
-      testCases: generatedContent.trim()
+      testCases: parsedData.testCases,
+      projectDetails: parsedData.projectDetails || {
+        projectName: "UI Image Analysis",
+        priority: "Medium",
+        description: "Test cases generated from uploaded application screenshot."
+      }
     });
 
   } catch (error) {

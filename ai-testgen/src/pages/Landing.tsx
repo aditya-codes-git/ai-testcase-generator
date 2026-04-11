@@ -100,16 +100,7 @@ export default function Landing() {
                 </button>
               </div>
 
-              {/* Trusted By */}
-              <div className="pt-10 space-y-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Accelerating workflows for</p>
-                 <div className="flex flex-wrap gap-8 items-center text-xl font-bold opacity-40">
-                    <span className="flex items-center gap-1 font-mono tracking-tighter">VOLT<Zap /></span>
-                    <span className="italic uppercase">Quantix</span>
-                    <span className="font-serif">STARK</span>
-                    <span className="tracking-widest">NEXUS</span>
-                 </div>
-              </div>
+
             </div>
 
             {/* Right Visual mock */}

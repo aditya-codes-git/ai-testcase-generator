@@ -14,7 +14,7 @@ export interface TestCase {
 }
 
 export function TestCaseTable({ testCases }: { testCases: TestCase[] }) {
-  if (!testCases || testCases.length === 0) return null;
+  if (!testCases || !Array.isArray(testCases) || testCases.length === 0) return null;
 
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm shadow-sm">
