@@ -144,10 +144,14 @@ const STYLES = `
 // -------------------------------------------------------------------------
 // 2. MAGNETIC BUTTON PRIMITIVE (Zero Dependency)
 // -------------------------------------------------------------------------
-export type MagneticButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & 
-  React.AnchorHTMLAttributes<HTMLAnchorElement> & {
-    as?: React.ElementType;
-  };
+export interface MagneticButtonProps extends React.HTMLAttributes<HTMLElement> {
+  as?: any;
+  children?: React.ReactNode;
+  className?: string;
+  href?: string;
+  target?: string;
+  onClick?: () => void;
+}
 
 const MagneticButton = React.forwardRef<HTMLElement, MagneticButtonProps>(
   ({ className, children, as: Component = "button", ...props }, forwardedRef) => {
@@ -199,11 +203,11 @@ const MagneticButton = React.forwardRef<HTMLElement, MagneticButtonProps>(
       }, element);
 
       return () => ctx.revert();
-    },[]);
+    }, []);
 
     return (
       <Component
-        ref={(node: HTMLElement) => {
+        ref={(node: HTMLElement | null) => {
           (localRef as any).current = node;
           if (typeof forwardedRef === "function") forwardedRef(node);
           else if (forwardedRef) (forwardedRef as any).current = node;

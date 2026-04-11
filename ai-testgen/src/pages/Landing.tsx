@@ -8,7 +8,6 @@ import {
   BrainCircuit, 
   FileSpreadsheet, 
   ArrowRight, 
-  Plane, 
   Zap, 
   Shield, 
   Rocket, 

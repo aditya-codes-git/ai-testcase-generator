@@ -1,24 +1,31 @@
 require('dotenv').config();
 const vision = require('@google-cloud/vision');
-const path = require('path');
 
+/**
+ * Production-ready Vision API test script.
+ * 
+ * This script uses Application Default Credentials (ADC).
+ * No JSON key file is required when running on Cloud Run or locally with gcloud auth.
+ */
 async function testVision() {
   try {
-    console.log('Env var GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
-    const keyPath = path.resolve(__dirname, process.env.GOOGLE_APPLICATION_CREDENTIALS || './vision-key.json');
-    console.log('Resolved Key Path:', keyPath);
+    console.log('>>> Initializing Vision API Client with Default Credentials...');
     
-    // Explicitly pass the keyFilename to be sure
-    const client = new vision.ImageAnnotatorClient({
-      keyFilename: keyPath
-    });
+    // Automatic initialization - picks up credentials from the environment (ADC)
+    const client = new vision.ImageAnnotatorClient();
     
-    console.log('Client initialized successfully');
-    // Try a simple list call if possible, or just list properties
-    console.log('Project ID:', await client.getProjectId());
-    console.log('Vision test completed successfully');
+    console.log('>>> Client initialized successfully');
+    
+    // Verify connectivity by fetching Project ID
+    const projectId = await client.getProjectId();
+    console.log('>>> Connected to Project:', projectId);
+    
+    console.log('>>> Vision API test completed successfully.');
   } catch (err) {
-    console.error('Vision Test Failed:', err);
+    console.error('!!! Vision API Test Failed:', err.message);
+    console.log('\nPossible causes:');
+    console.log('1. Local: Run "gcloud auth application-default login"');
+    console.log('2. Cloud Run: Ensure service account has "Cloud Vision API User" role.');
   }
 }
 

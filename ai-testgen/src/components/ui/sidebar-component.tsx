@@ -26,11 +26,11 @@ interface SidebarProps {
 }
 
 export function TwoLevelSidebar({ 
-  userEmail, 
-  onLogout, 
+  userEmail: _userEmail, 
+  onLogout: _onLogout, 
   className,
-  activeTab,
-  onTabChange,
+  activeTab: _activeTab,
+  onTabChange: _onTabChange,
   activeSecondaryTab,
   onSecondaryTabChange
 }: SidebarProps) {
