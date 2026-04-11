@@ -59,12 +59,12 @@ export function TwoLevelSidebar({
       </button>
 
       <div className={cn(
-        "flex h-screen bg-card border-r border-border/50 shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-40",
+        "flex h-screen bg-black/60 backdrop-blur-2xl border-r border-white/[0.06] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-40",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         className
       )}>
         {/* Level 1: Primary Navigation */}
-        <div className="w-[72px] flex flex-col items-center py-6 border-r border-border/50 bg-background/50">
+        <div className="w-[72px] flex flex-col items-center py-6 border-r border-white/[0.04] bg-black/40">
           {/* Logo container removed for redundancy */}
           
           <nav className="flex-1 w-full flex flex-col items-center gap-4">
@@ -76,10 +76,10 @@ export function TwoLevelSidebar({
                   key={item.id}
                   onClick={() => onTabChange(item.id as PrimaryTab)}
                   className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative",
+                    "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 group relative",
                     isActive 
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-violet-500/15 text-violet-400 shadow-lg shadow-violet-500/10 border border-violet-500/20" 
+                      : "text-muted-foreground/60 hover:bg-white/[0.04] hover:text-foreground"
                   )}
                 >
                   <Icon size={20} />
@@ -94,7 +94,7 @@ export function TwoLevelSidebar({
           <div className="mt-auto w-full flex flex-col items-center gap-4">
             <button 
               onClick={onLogout}
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all group relative"
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-muted-foreground/50 hover:bg-white/[0.04] hover:text-foreground transition-all duration-200 group relative"
             >
               <Logout size={20} />
               <div className="absolute left-14 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 border border-border shadow-sm">
@@ -113,8 +113,8 @@ export function TwoLevelSidebar({
         </div>
 
         {/* Level 2: Secondary Navigation */}
-        <div className="w-64 flex flex-col bg-card/30 hidden sm:flex">
-          <div className="p-6 border-b border-border/50 h-[88px] flex flex-col justify-center gap-1">
+        <div className="w-64 flex flex-col bg-black/20 hidden sm:flex">
+          <div className="p-6 border-b border-white/[0.06] h-[88px] flex flex-col justify-center gap-1">
             <div 
               onClick={() => window.location.href = "/"}
               className="flex items-center gap-2 cursor-pointer group"
@@ -130,7 +130,7 @@ export function TwoLevelSidebar({
               <input 
                 type="text" 
                 placeholder="Search..." 
-                className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground"
+                className="w-full bg-black/30 border border-white/[0.06] rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/30 focus:border-violet-500/30 transition-all text-foreground placeholder:text-muted-foreground/40"
               />
             </div>
 
@@ -143,10 +143,10 @@ export function TwoLevelSidebar({
                     key={item.id}
                     onClick={() => onSecondaryTabChange(item.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                       isActive 
-                        ? "bg-primary/10 text-primary" 
-                        : "text-muted-foreground hover:bg-background hover:text-foreground"
+                        ? "bg-violet-500/10 text-violet-400 border border-violet-500/15" 
+                        : "text-muted-foreground/60 hover:bg-white/[0.04] hover:text-foreground border border-transparent"
                     )}
                   >
                     <Icon size={16} />
