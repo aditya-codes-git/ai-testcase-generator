@@ -110,7 +110,7 @@ export default function Dashboard({ session }: { session: any }) {
     rawStringTestCases?: string;
     extractedText?: string;
   } | null>(null)
-
+  const [error, setError] = useState<string | null>(null)
 
   // Refinement State
   const [refineInstruction, setRefineInstruction] = useState("")
