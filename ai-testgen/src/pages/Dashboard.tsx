@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { BrainCircuit, LogOut, Download, Sparkles, Loader2, Activity, ListChecks, History, Calendar, FileText, ChevronRight, BarChart3, TrendingUp, Zap, RefreshCw, Wand2, ChevronDown, ChevronUp, FileCode2, Copy, Check, Trash2, UploadCloud } from "lucide-react"
 import { TestCaseTable } from "../components/ui/TestCaseTable"
 import type { TestCase } from "../components/ui/TestCaseTable"
-import { TwoLevelSidebar, type PrimaryTab } from "../components/ui/sidebar-component"
+import { TwoLevelSidebar } from "../components/ui/sidebar-component"
 import ExcelJS from "exceljs"
 import { saveAs } from "file-saver"
 import { generateTestCases, refineTestCases, generateAutomationScript, fetchAutomationScript } from "../lib/api"
@@ -85,7 +85,6 @@ export default function Dashboard({ session }: { session: any }) {
   const navigate = useNavigate()
   const [featureDesc, setFeatureDesc] = useState("")
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<PrimaryTab>("dashboard")
   const [activeSecondaryTab, setActiveSecondaryTab] = useState("overview")
   
   // Script State
@@ -487,13 +486,6 @@ export default function Dashboard({ session }: { session: any }) {
   return (
     <div className="flex h-screen bg-background font-sans overflow-hidden noise-bg dashboard-glow">
       <TwoLevelSidebar 
-        userEmail={session?.user?.email} 
-        onLogout={handleLogout} 
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          if (tab === "dashboard") setActiveSecondaryTab("overview");
-        }}
         activeSecondaryTab={activeSecondaryTab}
         onSecondaryTabChange={setActiveSecondaryTab}
       />

@@ -16,21 +16,13 @@ import { cn } from "../../lib/utils";
 export type PrimaryTab = "dashboard";
 
 interface SidebarProps {
-  userEmail?: string;
-  onLogout?: () => void;
   className?: string;
-  activeTab: PrimaryTab;
-  onTabChange: (tab: PrimaryTab) => void;
   activeSecondaryTab: string;
   onSecondaryTabChange: (tab: string) => void;
 }
 
 export function TwoLevelSidebar({ 
-  userEmail: _userEmail, 
-  onLogout: _onLogout, 
   className,
-  activeTab: _activeTab,
-  onTabChange: _onTabChange,
   activeSecondaryTab,
   onSecondaryTabChange
 }: SidebarProps) {
