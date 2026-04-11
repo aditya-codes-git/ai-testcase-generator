@@ -67,39 +67,64 @@ Return ONLY JSON.`;
  * Creates positive, negative, boundary, and edge test cases based on structured UI.
  */
 async function generateTestCasesFromUI(structure) {
-  const systemPrompt = "You are a QA automation engineer. Output strictly valid JSON without markdown formatting or explanation.";
-  const userPrompt = `Generate detailed test cases based on this UI structure:
+  const systemPrompt = "You are a senior QA automation engineer. Output strictly valid JSON without markdown formatting or explanation.";
+  const userPrompt = `Generate clean, professional test cases for the given UI.
 
+UI Structure:
 ${JSON.stringify(structure, null, 2)}
 
-STRICT RULES:
-* Return ONLY JSON
-* Generate 8-12 test cases
-* Include:
-  * Positive cases
-  * Negative cases
-  * Edge cases
-  * Boundary cases
+STRICT OUTPUT REQUIREMENTS:
+1. Return ONLY valid JSON
+2. Generate 8-12 test cases
+3. Follow this EXACT structure
 
-Each test case must include:
-* testCaseId
-* testSteps (minimum 4 steps)
-* inputData (realistic values)
-* expectedResult
-* testEnvironment = Web
-* executionStatus = Not Executed
-* bugSeverity = None
-* bugPriority = None
-* notes (Positive / Negative / Edge / Boundary)
+Each test case MUST include:
+* testCaseId: "TC001", "TC002", etc.
+* testSteps: ARRAY of steps (IMPORTANT: each step should be short and UI-action based)
+* inputData: SINGLE STRING formatted exactly like: "username: user123, password: pass123"
+* expectedResult: clear sentence (no long paragraphs)
+* testEnvironment: "Web"
+* executionStatus: "Not Executed"
+* bugSeverity: "None"
+* bugPriority: "None"
+* notes: one of ["Positive", "Negative", "Edge", "Boundary"]
 
-Expected JSON Output format:
+🔥 CRITICAL FORMATTING RULES
+
+1. testSteps MUST:
+* Have 3-4 steps only
+* Start with verbs like: Enter, Click, Navigate, Verify
+* NO long sentences
+GOOD: ["Enter valid username", "Enter valid password", "Click login button"]
+BAD: ["User enters valid username and password and logs in"]
+
+2. inputData MUST:
+* Be short
+* Always include key-value pairs
+* NEVER empty or "-"
+
+3. expectedResult MUST:
+* Be short and UI-focused
+* Examples: "Login successful, redirected to dashboard", "Error message: Invalid username or password", "Username is required"
+
+4. INCLUDE MIX:
+* 3 Positive cases
+* 3 Negative cases
+* 2 Edge cases
+* 2 Boundary cases
+
+🔥 OUTPUT FORMAT
 {
   "testCases": [
     {
       "testCaseId": "TC001",
-      "testSteps": ["step1", "step2", "step3", "step4"],
-      "inputData": "username: testuser, password: test123",
-      "expectedResult": "User logs in successfully",
+      "testSteps": [
+        "Enter valid username",
+        "Enter valid password",
+        "Click login button"
+      ],
+      "inputData": "username: user123, password: pass123",
+      "expectedResult": "Login successful, redirected to dashboard",
       "testEnvironment": "Web",
       "executionStatus": "Not Executed",
       "bugSeverity": "None",
@@ -118,7 +143,7 @@ Expected JSON Output format:
   }
 }
 
-Return ONLY JSON.`;
+Return ONLY JSON. No explanation.`;
 
   const messages = [
     { role: "system", content: systemPrompt },
