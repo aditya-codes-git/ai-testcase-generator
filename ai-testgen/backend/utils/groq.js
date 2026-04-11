@@ -1,25 +1,50 @@
 const axios = require('axios');
 
-async function callGroq(messages, temperature = 0.1, responseFormat = { type: "json_object" }) {
+/* ---------- SAFE JSON PARSER ---------- */
+function extractJSON(text) {
+  try {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    return JSON.parse(text.substring(start, end + 1));
+  } catch (e) {
+    console.error("❌ RAW AI OUTPUT:", text);
+    throw new Error("Invalid JSON from AI");
+  }
+}
+
+/* ---------- GROQ CALL ---------- */
+async function callGroq(messages, temperature = 0.3) {
   const apiKey = process.env.GROQ_API_KEY;
+
   if (!apiKey) {
     throw new Error('GROQ_API_KEY is missing from environment variables');
   }
 
   try {
-    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-      model: "llama-3.3-70b-versatile",
-      messages,
-      temperature,
-      response_format: responseFormat
-    }, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: "llama-3.3-70b-versatile",
+        messages,
+        temperature
+        // ✅ NO response_format (IMPORTANT FIX)
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
-    return response.data.choices[0].message.content;
+    ```
+const content = response.data.choices[0].message.content;
+
+console.log("🔥 GROQ RAW:", content);
+
+return content;
+```
+
   } catch (error) {
     const errorDetail = error.response?.data || error.message;
     console.error('[Groq API Error]:', typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail);
@@ -27,25 +52,35 @@ async function callGroq(messages, temperature = 0.1, responseFormat = { type: "j
   }
 }
 
-// Generate test cases from feature description
+/* ---------- GENERATE TEST CASES ---------- */
 async function generateTestCases(feature) {
-  const systemPrompt = "You are a professional QA engineer who outputs strictly valid JSON.";
-  const userPrompt = `You are a professional QA engineer.
+  const messages = [
+    {
+      role: "system",
+      content: "You are a professional QA engineer. Return ONLY JSON."
+    },
+    {
+      role: "user",
+      content: `
+Generate test cases for:
 
-Generate structured software test cases based on a feature description.
+${feature}
 
----
+RULES:
 
-## OUTPUT FORMAT (STRICT JSON ONLY)
+* 6 to 10 test cases
+* Include positive, negative, edge cases
+* NO empty fields
+* NO "-"
+* realistic input values
 
-Return ONLY valid JSON. No explanation. No extra text.
-
+FORMAT:
 {
 "projectDetails": {
 "projectName": "Sample App",
 "priority": "High",
-"description": "<short description of feature>",
-"testCaseAuthor": "AI Generator",
+"description": "Feature testing",
+"testCaseAuthor": "AI",
 "testCaseReviewer": "",
 "testCaseVersion": "1.0",
 "testExecutionDate": ""
@@ -53,161 +88,95 @@ Return ONLY valid JSON. No explanation. No extra text.
 "testCases": [
 {
 "testCaseId": "TC001",
-"testSteps": [
-"Step 1",
-"Step 2",
-"Step 3"
-],
-"inputData": "",
-"expectedResult": "",
+"testSteps": ["Enter username","Enter password","Click login"],
+"inputData": "username: user123, password: pass123",
+"expectedResult": "Login successful",
 "actualResult": "",
 "testEnvironment": "Web",
 "executionStatus": "Not Executed",
 "bugSeverity": "None",
 "bugPriority": "None",
-"notes": ""
+"notes": "Positive"
 }
 ]
-}
-
----
-
-## REQUIREMENTS
-
-* Generate at least 6–10 test cases
-* Include:
-  * Positive cases
-  * Negative cases
-  * Edge cases
-* Include validation scenarios:
-  * Empty inputs
-  * Invalid formats
-  * Boundary values
-* Ensure all fields are filled meaningfully
-* Steps must be clear and actionable
-* IDs must be sequential (TC001, TC002...)
-
----
-
-## IMPORTANT RULES
-
-* Do NOT skip any field
-* Do NOT return explanations
-* JSON must be valid and directly parsable
-
----
-
-## FEATURE
-
-${feature}
-
----
-
-Return ONLY JSON.`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
+}`
+    }
   ];
 
-  const textOutput = await callGroq(messages);
-  return JSON.parse(textOutput);
+  const raw = await callGroq(messages, 0.4);
+  const parsed = extractJSON(raw);
+
+  return parsed;
 }
 
-// Chat-based refinement
+/* ---------- CHAT REFINE ---------- */
 async function chatRefine(messages, currentTestCases) {
-  const systemPrompt = `You are a professional QA assistant. You are refining a set of test cases based on a conversation.
-Respond with a JSON object containing two fields:
-1. "testCases": The updated list of test cases (same structure as input).
-2. "assistantMessage": A brief, professional explanation of the changes made.
-
-Structure:
-{
-  "testCases": [...],
-  "assistantMessage": "..."
-}
-
-No markdown, just raw JSON.`;
-
-  const userPrompt = `CURRENT TEST CASES:\n${JSON.stringify(currentTestCases, null, 2)}\n\nCONVERSATION HISTORY:\n${JSON.stringify(messages, null, 2)}`;
-
   const groqMessages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
-  ];
-
-  const textOutput = await callGroq(groqMessages);
-  return JSON.parse(textOutput);
-}
-
-// Direct refinement
-async function refineTestCases(currentTestCases, instruction) {
-  const systemPrompt = `You are a professional QA engineer who outputs strictly valid JSON array of test cases.`;
-  const userPrompt = `Refine the given test cases based on the user's instructions.
-Output ONLY a raw JSON array of test cases matching this structure:
-[
-  {
-    "testCaseId": "TC001",
-    "testSteps": ["step1", "step2"],
-    "inputData": "value",
-    "expectedResult": "result",
-    "notes": "notes"
-  }
-]
-
-CURRENT TEST CASES:
+    {
+      role: "system",
+      content: "Return JSON with testCases + assistantMessage"
+    },
+    {
+      role: "user",
+      content: `
+Current:
 ${JSON.stringify(currentTestCases, null, 2)}
 
-INSTRUCTION:
-${instruction}`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
+Chat:
+${JSON.stringify(messages, null, 2)}
+`
+    }
   ];
 
-  const textOutput = await callGroq(messages);
-  return JSON.parse(textOutput);
+  const raw = await callGroq(groqMessages);
+  return extractJSON(raw);
 }
 
-// Generate an automation script
-async function generateAutomationScript(testCases) {
-  const systemPrompt = `You are a senior QA Automation Engineer specializing in Java Selenium and TestNG. Convert test cases into clean, executable automation scripts.
-
-INSTRUCTIONS:
-* Convert test cases into Java Selenium code
-* Use TestNG framework
-* Use proper class structure
-* Use meaningful method names
-* Use WebDriver (ChromeDriver)
-* Include setup and teardown
-* Include assertions
-* Use By locators (id/name/xpath where appropriate)
-* Keep code clean and runnable
-* One test method per test case
-
-OUTPUT FORMAT:
-* Complete Java class
-* Ready to run in IDE
-* No explanations, ONLY the raw Java code block without Markdown syntax. Start immediately with 'import' or 'package'.`;
-
-  const userPrompt = `TEST CASES:\n${JSON.stringify(testCases, null, 2)}\n\nPlease generate the automation script according to the instructions. Ensure the output contains only Java code.`;
-
+/* ---------- REFINE ---------- */
+async function refineTestCases(currentTestCases, instruction) {
   const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
+    {
+      role: "system",
+      content: "Return ONLY JSON array"
+    },
+    {
+      role: "user",
+      content: `
+Refine:
+
+${JSON.stringify(currentTestCases, null, 2)}
+
+Instruction:
+${instruction}
+`
+    }
   ];
 
-  // We set responseFormat to null because we want raw text (Java code), not a JSON object
-  const textOutput = await callGroq(messages, 0.2, null);
-  
-  // Clean up markdown block if the model included it despite instructions
-  let cleanScript = textOutput;
-  if (cleanScript.startsWith("```")) {
-    cleanScript = cleanScript.replace(/^```[a-z]*\n/, "").replace(/```$/, "");
+  const raw = await callGroq(messages);
+  return extractJSON(raw);
+}
+
+/* ---------- AUTOMATION SCRIPT ---------- */
+async function generateAutomationScript(testCases) {
+  const messages = [
+    {
+      role: "system",
+      content: "Generate Java Selenium TestNG code"
+    },
+    {
+      role: "user",
+      content: JSON.stringify(testCases, null, 2)
+    }
+  ];
+
+  const raw = await callGroq(messages, 0.2);
+
+  let clean = raw;
+  if (clean.startsWith("`")) {
+    clean = clean.replace(/^`[a-z]*\n/, "").replace(/```$/, "");
   }
-  
-  return cleanScript.trim();
+
+  return clean.trim();
 }
 
 module.exports = {
