@@ -83,6 +83,7 @@ Each test case MUST include:
 * testSteps: ARRAY of steps (IMPORTANT: each step should be short and UI-action based)
 * inputData: SINGLE STRING formatted exactly like: "username: user123, password: pass123"
 * expectedResult: clear sentence (no long paragraphs)
+* actualResult: ""
 * testEnvironment: "Web"
 * executionStatus: "Not Executed"
 * bugSeverity: "None"
@@ -115,6 +116,15 @@ BAD: ["User enters valid username and password and logs in"]
 
 🔥 OUTPUT FORMAT
 {
+  "projectDetails": {
+    "projectName": "UI Image Analysis",
+    "priority": "High",
+    "description": "Test cases generated from analyzed UI elements",
+    "testCaseAuthor": "AI Generator",
+    "testCaseReviewer": "Pending",
+    "testCaseVersion": "1.0",
+    "testExecutionDate": ""
+  },
   "testCases": [
     {
       "testCaseId": "TC001",
@@ -125,22 +135,14 @@ BAD: ["User enters valid username and password and logs in"]
       ],
       "inputData": "username: user123, password: pass123",
       "expectedResult": "Login successful, redirected to dashboard",
+      "actualResult": "",
       "testEnvironment": "Web",
       "executionStatus": "Not Executed",
       "bugSeverity": "None",
       "bugPriority": "None",
       "notes": "Positive"
     }
-  ],
-  "projectDetails": {
-    "projectName": "UI Image Analysis",
-    "priority": "High",
-    "description": "Test cases generated from analyzed UI elements",
-    "testCaseAuthor": "AI Generator",
-    "testCaseReviewer": "Pending",
-    "testCaseVersion": "1.0",
-    "testExecutionDate": ""
-  }
+  ]
 }
 
 Return ONLY JSON. No explanation.`;
@@ -201,15 +203,18 @@ router.post('/generate-from-image', upload.single('image'), async (req, res) => 
       return res.status(500).json({ success: false, error: "AI failed to generate structured test cases" });
     }
 
-    // 5. Return formatted response (preserving existing contract)
+    // 5. Return formatted response (preserving existing contract for frontend)
     return res.json({
       success: true,
-      extractedText: cleanText,
-      testCases: parsedData.testCases,
-      projectDetails: parsedData.projectDetails || {
-        projectName: "UI Image Analysis",
-        priority: "Medium",
-        description: "Test cases generated from uploaded application screenshot."
+      data: {
+        extractedText: cleanText,
+        uiStructure: uiStructure,
+        testCases: parsedData.testCases,
+        projectDetails: parsedData.projectDetails || {
+          projectName: "UI Image Analysis",
+          priority: "Medium",
+          description: "Test cases generated from uploaded application screenshot."
+        }
       }
     });
 
