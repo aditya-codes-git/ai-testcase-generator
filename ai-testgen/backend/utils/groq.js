@@ -21,7 +21,8 @@ async function callGroq(messages, temperature = 0.1, responseFormat = { type: "j
 
     return response.data.choices[0].message.content;
   } catch (error) {
-    console.error('Groq API Error:', error.response?.data || error.message);
+    const errorDetail = error.response?.data || error.message;
+    console.error('[Groq API Error]:', typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail);
     throw new Error('Failed to call Groq API');
   }
 }

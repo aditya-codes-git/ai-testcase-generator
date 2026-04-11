@@ -3,7 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 function getGenAI() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is missing from environment variables');
+    console.error('[Gemini API Error]: GEMINI_API_KEY is missing');
+    throw new Error('GEMINI_API_KEY is missing');
   }
   return new GoogleGenerativeAI(apiKey);
 }
